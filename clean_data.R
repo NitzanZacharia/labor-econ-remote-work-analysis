@@ -40,9 +40,9 @@ clean_df <- lfs_data_raw %>%
   # סינון לאוכלוסיית היעד
   filter(
     Min == 2,                                               # נשים בלבד
-    # הערה: יש לבדוק בספר הצפנים אילו ערכים ב-GilNK משקפים את הגילאים 25-54. 
-    # בדוגמה זו נניח שזה קודים 6 עד 11, אך חובה לוודא!
-    GilNK >= 6 & GilNK <= 11,                               
+    # Glink 3 = age group 25-29
+    # Glink 7 = age group 55-59 (since 8 is 60-64 and some retire at 62 and some 65)
+    GilNK >= 3 & GilNK <= 7,                               
     ShnatSeker %in% c(2017, 2018, 2019, 2021, 2022, 2023)   # השמטת 2020
   ) %>%
   
