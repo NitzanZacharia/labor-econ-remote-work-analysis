@@ -90,7 +90,10 @@ clean_df <- clean_df %>%
     -contains("MisparMuasakimMale"),
     -contains("SemelEretzLeda"),
     -c(Limudim, ShnotLimud, SugBeitSeferAcharon, AvadBeshavua2, ChipesChodesh, KamaPachot, SibaAvadPachot)
-  )
+    -c(MisparShaotNosafot, ShaotAvodaLeMaase, ChozerLamasik, KamaShavuotChipes, ChipusAvodaMelea, ZminutLeAvodaMechapsim)
+    -c(SibatEyZminut, AvadEyPaamBaaretz, SibaHifsikLaavod, MatayHifsikLaavod, ChipesBeShanaAchrona, SibaLoChipesAvoda, ZminutLeAvodaMityaashim, MimiMekabelSachar)
+    -c(Leom, YeladimAd14PratNK, GilYeledTzairPratNK, ShaotAvodaLemaaseNK, MeshechChipusAvodaNK)
+    )
 
 #remove all limudin except TeudaGvoha!!!!!!!!!!
 dim(clean_df)
