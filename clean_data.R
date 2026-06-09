@@ -89,10 +89,17 @@ clean_df <- clean_df %>%
     -contains("MisparBiltiMuasakim"),
     -contains("MisparMuasakimMale"),
     -contains("SemelEretzLeda"),
+    -contains("TtchunatAvoda"),
     -c(Limudim, ShnotLimud, SugBeitSeferAcharon, AvadBeshavua2, ChipesChodesh, KamaPachot, SibaAvadPachot)
     -c(MisparShaotNosafot, ShaotAvodaLeMaase, ChozerLamasik, KamaShavuotChipes, ChipusAvodaMelea, ZminutLeAvodaMechapsim)
     -c(SibatEyZminut, AvadEyPaamBaaretz, SibaHifsikLaavod, MatayHifsikLaavod, ChipesBeShanaAchrona, SibaLoChipesAvoda, ZminutLeAvodaMityaashim, MimiMekabelSachar)
-    -c(Leom, YeladimAd14PratNK, GilYeledTzairPratNK, ShaotAvodaLemaaseNK, MeshechChipusAvodaNK)
+    -c(Leom, YeladimAd14PratNK, GilYeledTzairPratNK, ShaotAvodaLemaaseNK, MeshechChipusAvodaNK, ShnotLimudNK)
+    -c(ShayachAvoda, SibaAvadPachot10CHodashim, LimudimVeAvoda, MityaashimMechipusAvoda, RamatHaskala_ISCED97, RamatHaskala_ISCED2011, ShaotOzeretMBMeubad)
+    -c(Pratmugbalkashe, ShnotLimudLeloYeshivotG, KamaPachotmechushav, SibaAvadPachotmechushav, AvadEyPaam, MimiMekabelSacharMechushav, AavadIkarit)
+    -c(AvodaAcheret, BeeluShaot, BeizoDerech, Chaverim, ChipesAvodaAcheret, ChipesShavuot, ChipesShavuotMityaesh, ChipusAvodaDmeyAvtala, ChipusAvodaMismachim)
+    -c(ChipusAvodaShnatHafsaka, ChipusAvodaYachalLehatchil30, ChipusMeleaMityaesh, ChipusShaot, ChodeshHafsaka, ChodeshHafsakaMityaesh)
+    -c(ChodeshHatchala, DmeyAvtalaMityaesh, Esek, HaskalaMatima, HavtachatHachnasaMityaesh, HifsikMigbala, HifsikMigbalaMityaesh, KamaAvodot, KoachAdam, LehachlifAvoda, Lehatchil60, LoChipesMigbala, ShnatHafsakaMityaesh, SibaHifsikLaavodMityaesh, SofShavua, SugMachala, SugTeuna, YachalLehatchil30Mityaesh)
+    -c(YamimBashavua, ZmanLaavoda, KamaPachot_Unified)
     )
 
 #remove all limudin except TeudaGvoha!!!!!!!!!!
