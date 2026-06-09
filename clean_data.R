@@ -77,6 +77,23 @@ clean_df <- clean_df %>%
   select(
     -(Yeladim0_1Prat:Yeladim15_17Prat)
   )
+columns_to_drop <- c("ShnotLimud", "SugBeitSeferAcharon", "AvadBeshavua2", "ChipesChodesh", "KamaPachot", "SibaAvadPachot", "MisparShaotNosafot", "ShaotAvodaLeMaase", "ChozerLamasik", "KamaShavuotChipes", 
+                     "ChipusAvodaMelea", "ZminutLeAvodaMechapsim", "SibatEyZminut", "AvadEyPaamBaaretz", 
+                     "SibaHifsikLaavod", "MatayHifsikLaavod", "ChipesBeShanaAchrona", "SibaLoChipesAvoda", 
+                     "ZminutLeAvodaMityaashim", "MimiMekabelSachar", "Leom", "YeladimAd14PratNK", 
+                     "GilYeledTzairPratNK", "ShaotAvodaLemaaseNK", "MeshechChipusAvodaNK", "ShnotLimudNK", 
+                     "ShayachAvoda", "SibaAvadPachot10CHodashim", "LimudimVeAvoda", "MityaashimMechipusAvoda", 
+                     "RamatHaskala_ISCED97", "RamatHaskala_ISCED2011", "ShaotOzeretMBMeubad", "Pratmugbalkashe", 
+                     "ShnotLimudLeloYeshivotG", "KamaPachotmechushav", "SibaAvadPachotmechushav", "AvadEyPaam", 
+                     "MimiMekabelSacharMechushav", "AavadIkarit", "AvodaAcheret", "BeeluShaot", "BeizoDerech", 
+                     "Chaverim", "ChipesAvodaAcheret", "ChipesShavuot", "ChipesShavuotMityaesh", 
+                     "ChipusAvodaDmeyAvtala", "ChipusAvodaMismachim", "ChipusAvodaShnatHafsaka", 
+                     "ChipusAvodaYachalLehatchil30", "ChipusMeleaMityaesh", "ChipusShaot", "ChodeshHafsaka", 
+                     "ChodeshHafsakaMityaesh", "ChodeshHatchala", "DmeyAvtalaMityaesh", "Esek", "HaskalaMatima", 
+                     "HavtachatHachnasaMityaesh", "HifsikMigbala", "HifsikMigbalaMityaesh", "KamaAvodot", 
+                     "KoachAdam", "LehachlifAvoda", "Lehatchil60", "LoChipesMigbala", "ShnatHafsakaMityaesh", 
+                     "SibaHifsikLaavodMityaesh", "SofShavua", "SugMachala", "SugTeuna", "YachalLehatchil30Mityaesh", 
+                     "YamimBashavua", "ZmanLaavoda", "KamaPachot_Unified")
 clean_df <- clean_df %>%
   select(
     -contains("ChodeshSeker"),
@@ -90,16 +107,11 @@ clean_df <- clean_df %>%
     -contains("MisparMuasakimMale"),
     -contains("SemelEretzLeda"),
     -contains("TtchunatAvoda"),
-    -c(Limudim, ShnotLimud, SugBeitSeferAcharon, AvadBeshavua2, ChipesChodesh, KamaPachot, SibaAvadPachot)
-    -c(MisparShaotNosafot, ShaotAvodaLeMaase, ChozerLamasik, KamaShavuotChipes, ChipusAvodaMelea, ZminutLeAvodaMechapsim)
-    -c(SibatEyZminut, AvadEyPaamBaaretz, SibaHifsikLaavod, MatayHifsikLaavod, ChipesBeShanaAchrona, SibaLoChipesAvoda, ZminutLeAvodaMityaashim, MimiMekabelSachar)
-    -c(Leom, YeladimAd14PratNK, GilYeledTzairPratNK, ShaotAvodaLemaaseNK, MeshechChipusAvodaNK, ShnotLimudNK)
-    -c(ShayachAvoda, SibaAvadPachot10CHodashim, LimudimVeAvoda, MityaashimMechipusAvoda, RamatHaskala_ISCED97, RamatHaskala_ISCED2011, ShaotOzeretMBMeubad)
-    -c(Pratmugbalkashe, ShnotLimudLeloYeshivotG, KamaPachotmechushav, SibaAvadPachotmechushav, AvadEyPaam, MimiMekabelSacharMechushav, AavadIkarit)
-    -c(AvodaAcheret, BeeluShaot, BeizoDerech, Chaverim, ChipesAvodaAcheret, ChipesShavuot, ChipesShavuotMityaesh, ChipusAvodaDmeyAvtala, ChipusAvodaMismachim)
-    -c(ChipusAvodaShnatHafsaka, ChipusAvodaYachalLehatchil30, ChipusMeleaMityaesh, ChipusShaot, ChodeshHafsaka, ChodeshHafsakaMityaesh)
-    -c(ChodeshHatchala, DmeyAvtalaMityaesh, Esek, HaskalaMatima, HavtachatHachnasaMityaesh, HifsikMigbala, HifsikMigbalaMityaesh, KamaAvodot, KoachAdam, LehachlifAvoda, Lehatchil60, LoChipesMigbala, ShnatHafsakaMityaesh, SibaHifsikLaavodMityaesh, SofShavua, SugMachala, SugTeuna, YachalLehatchil30Mityaesh)
-    -c(YamimBashavua, ZmanLaavoda, KamaPachot_Unified)
+    -contains("Limudim"),
+    
+    -any_of(columns_to_drop)
+    
+    
     )
 
 #remove all limudin except TeudaGvoha!!!!!!!!!!
