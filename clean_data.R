@@ -48,5 +48,13 @@ clean_df <- lfs_data_raw %>%
     -contains("MisparMugbalim"),
     -contains("Yeshiva")         
   )
+clean_df <- clean_df %>%
+  select(
+    -(MisparHachlafa:YachasKirvaNK),
+    -(MisparNefashotGilAvodaV2007:MisparPrat),
+    -contains("MisparChadarimMB"),
+    -contains("TzfifutDiyur"),
+    -contains("ShayachimKoachAvoda")
+  )
 dim(clean_df)
 colnames(clean_df)
