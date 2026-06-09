@@ -11,6 +11,7 @@ lfs_data_raw <- file_names %>%
 
 # בדיקה שהכל עבד וכמה שורות/עמודות יש עכשיו
 dim(lfs_data_raw)
+
 # 2. ניקוי הנתונים ויצירת משתני ליבה
 clean_df <- lfs_data_raw %>%
   mutate(
@@ -52,9 +53,45 @@ clean_df <- clean_df %>%
   select(
     -(MisparHachlafa:YachasKirvaNK),
     -(MisparNefashotGilAvodaV2007:MisparPrat),
+    -(ChipusAvodaSherutTaasuka:ChipusAvodaOfenAcher),
+    -(EizeChozemechushav:ChodeshKodemShaa),
+    -(MimaHaMigbala:PniyaLmaasik),
+    -(RamatDat:BituachLeumi),
     -contains("MisparChadarimMB"),
     -contains("TzfifutDiyur"),
-    -contains("ShayachimKoachAvoda")
+    -contains("ShayachimKoachAvoda"),
+    -contains("YabeshetLeida"),
+    -contains("VetekNisuinNK"),
+    -contains("MaduaLehachlif"),
+    -contains("SherutTaasuka"),
   )
+clean_df <- clean_df %>%
+  select(
+    -contains("IsukLifneyShechipes"),
+    -contains("Needar"),
+    -contains("Aliya"),
+    -contains("Imut")
+  )
+#----------
+clean_df <- clean_df %>%
+  select(
+    -(Yeladim0_1Prat:Yeladim15_17Prat)
+  )
+clean_df <- clean_df %>%
+  select(
+    -contains("ChodeshSeker"),
+    -contains("ShnatMidgam"),
+    -contains("ChodeshMidgam"),
+    -contains("MisparNefashotMB"),
+    -contains("MisparNefashotNosafot"),
+    -contains("YeladimAd14MBNK"),
+    -contains("MisparNefashotMi15MB"),
+    -contains("MisparBiltiMuasakim"),
+    -contains("MisparMuasakimMale"),
+    -contains("SemelEretzLeda"),
+    -c(Limudim, ShnotLimud, SugBeitSeferAcharon, AvadBeshavua2, ChipesChodesh, KamaPachot, SibaAvadPachot)
+  )
+
+#remove all limudin except TeudaGvoha!!!!!!!!!!
 dim(clean_df)
 colnames(clean_df)
