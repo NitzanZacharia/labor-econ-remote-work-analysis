@@ -26,22 +26,27 @@ clean_df <- lfs_data_raw %>%
     )
   ) %>%
   
-  # סינון נשים, גילאים ושנים (כפי שהגדרנו)
+
+  
   filter(
     Min == 2,                                               
     # Glink 3 = age group 25-29
     # Glink 7 = age group 55-59 (since 8 is 60-64 and some retire at 62 and some 65)
-    GilNK >= 3 & GilNK <= 7,                               
+    GilNK >= 3 & GilNK <= 7,                                
     ShnatSeker %in% c(2017, 2018, 2019, 2021, 2022, 2023)   
   ) %>%
   
-  # ------ התיקון שלנו ------
-# 1. סינון שורות שבהן סיווג המקצוע הוא "XX" (או NA אמיתי ליתר ביטחון)
-filter(
-  MishlachYad_ISCO_08_2 != "XX",
-  !is.na(MishlachYad_ISCO_08_2)
-) %>%
+  # 1. ממירים למספרים (משתיקים את האזהרה כי אנחנו יודעים שייווצרו NAs מהערכים הבעייתיים)
+  mutate(MishlachYad_ISCO_08_2 = suppressWarnings(as.numeric(MishlachYad_ISCO_08_2))) %>%
   
-  # 2. המרת עמודת המקצוע מטקסט למספרים נקיים
-  mutate(MishlachYad_ISCO_08_2 = as.numeric(MishlachYad_ISCO_08_2)) %>%
+  # 2. זורקים את כל השורות שקיבלו NA (כולל אלו שהיו "XX" או "..")
+  drop_na(MishlachYad_ISCO_08_2) %>%
+  #maybe leave the above row for the basic regression???
+  # הורדת העמודות הלא רלוונטיות
+  select(
+    -starts_with("Kolel"),     
+    -contains("MisparMugbalim"),
+    -contains("Yeshiva")         
+  )
+dim(clean_df)
 colnames(clean_df)
