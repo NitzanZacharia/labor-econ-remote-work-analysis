@@ -33,7 +33,7 @@ load_and_clean_data <- function(folder_path) {
         .default = NA_real_
       ),
       MishlachYad_ISCO_08_2 = suppressWarnings(as.numeric(MishlachYad_ISCO_08_2))
-    ) %>%
+    ) 
     
   
   # ── 4. Drop unwanted columns ─────────────────────────────────────────────────
