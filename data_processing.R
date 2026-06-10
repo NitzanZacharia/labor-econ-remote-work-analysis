@@ -93,8 +93,4 @@ load_and_clean_data <- function(folder_path) {
   
   return(df)
 }
-#"main" 
-folder_path <- "G:/My Drive/Uni/econ/csv_data"
-cleaned_data <-load_and_clean_data(folder_path)
-dim(clean_df)
-colnames(clean_df)
+
