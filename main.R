@@ -4,7 +4,7 @@
 rm(list = ls())
 source("data_processing.R")
 source("basic_regression.R")
-
+message("edit folder_path if needed!")
 folder_path <- "G:/My Drive/Uni/econ/csv_data"
 
 
