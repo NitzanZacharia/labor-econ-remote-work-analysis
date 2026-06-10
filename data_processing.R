@@ -34,7 +34,7 @@ load_and_clean_data <- function(folder_path) {
       ),
       MishlachYad_ISCO_08_2 = suppressWarnings(as.numeric(MishlachYad_ISCO_08_2))
     ) %>%
-    drop_na(MishlachYad_ISCO_08_2)
+    
   
   # ── 4. Drop unwanted columns ─────────────────────────────────────────────────
   cols_to_drop <- c(
@@ -65,7 +65,7 @@ load_and_clean_data <- function(folder_path) {
   
   # Regex pattern matching any column that starts with these prefixes
   prefix_pattern <- paste0(
-    "^(",
+    "(",
     paste(c(
       "Kolel", "MisparMugbalim", "Yeshiva", "ChodeshSeker", "ShnatMidgam",
       "ChodeshMidgam", "MisparNefashotMB", "MisparNefashotNosafot",

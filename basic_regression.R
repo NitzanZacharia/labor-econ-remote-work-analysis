@@ -13,6 +13,7 @@ basic_reg <- function(cleaned_data) {
     "Dat",                    # religiosity
     "GilNK",                  # age group
     "MachozMegurim",          # district of residence
+    "TeudaGvoha",             # education
     "MisparHorimYechidim"     # single parent indicator
   )
   
