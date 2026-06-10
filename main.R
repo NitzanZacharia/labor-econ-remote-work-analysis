@@ -20,6 +20,8 @@ baseline_results <- basic_reg(cleaned_df)
 
 # 4. Export results
 summary(baseline_results)
+
+#מפה והלאה - שטויות ובדיקות - למחוק
 # Employment rate by Mother/Post cells — the 2x2 DiD table
 cleaned_df %>%
   group_by(Mother, Post) %>%
@@ -45,3 +47,38 @@ reg_pretrend <- feols(
 )
 iplot(reg_pretrend)  # plots interaction coefficients — should be flat pre-2021
 message("Pipeline completed successfully!")
+cleaned_df %>% 
+  select(Employed, Mother, Post, MatzavMishpachti, Dat, GilNK, 
+         MachozMegurim, TeudaGvoha, MisparHorimYechidim) %>%
+  summarise(across(everything(), ~sum(is.na(.))))
+# See if NAs are systematically different
+cleaned_df %>%
+  mutate(emp_missing = is.na(Employed)) %>%
+  group_by(emp_missing) %>%
+  summarise(
+    pct_mother = mean(Mother, na.rm = TRUE),
+    mean_age   = mean(GilNK, na.rm = TRUE),
+    n          = n()
+  )
+cleaned_df %>% filter(is.na(Employed)) %>% head(10) %>% print(width = Inf)
+cleaned_df %>% 
+  filter(is.na(Employed)) %>% 
+  select(
+    ShnatSeker,
+    Oved35Shaot,
+    MisraMelea,
+    SibaLeAvodaChelkit,
+    AvadShanaAchrona,
+    KamaChodashimAvadBashana,
+    SibaLoAvadHashana,
+    ShaotAvodaBederechKlalNK,
+    MachozYishuvAvoda,
+    Muasak,
+    ShaotIkarit,
+    AvodaMeHaBayit,
+    AvadMeHaBayit,
+    KamaShaot,
+    Employed
+  ) %>% 
+  head(20) %>% 
+  print(width = Inf)
