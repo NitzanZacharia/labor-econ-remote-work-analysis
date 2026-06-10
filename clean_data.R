@@ -114,6 +114,5 @@ clean_df <- clean_df %>%
     
     )
 
-#remove all limudin except TeudaGvoha!!!!!!!!!!
 dim(clean_df)
 colnames(clean_df)
