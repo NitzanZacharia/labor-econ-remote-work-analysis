@@ -47,8 +47,7 @@ load_and_clean_data <- function(folder_path, imputation = "none") {
   
   # ── 4. Drop unwanted columns ───────────────────────────────────────────────
   
-  return(df)
-}
+
     
   
   # ── 4. Drop unwanted columns ─────────────────────────────────────────────────

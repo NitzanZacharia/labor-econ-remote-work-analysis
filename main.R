@@ -18,17 +18,22 @@ if (file.exists(rds_file_path)) {
   cleaned_df <- readRDS(rds_file_path)
 } else {
   message("Saved RDS not found — loading and cleaning raw data...")
-  cleaned_df <- load_and_clean_data(folder_path)
-  message("Saving cleaned data for future use...")
-  saveRDS(cleaned_df, file = rds_file_path)
+  cleaned_none       <- load_and_clean_data(folder_path, imputation = "none")
+  cleaned_avadshana  <- load_and_clean_data(folder_path, imputation = "AvadShana")
+  cleaned_workmonths <- load_and_clean_data(folder_path, imputation = "WorkMonths")
+  cleaned_both       <- load_and_clean_data(folder_path, imputation = "both")
+  
+  
 }
 
 # ── 4. Run regressions ────────────────────────────────────────────────────────
-message("Running basic regression model...")
-baseline_results <- basic_reg(cleaned_df)
+results_none       <- basic_reg(cleaned_none)
+results_avadshana  <- basic_reg(cleaned_avadshana)
+results_workmonths <- basic_reg(cleaned_workmonths)
+results_both       <- basic_reg(cleaned_both)
 comp_res <- basic_reg_comp(cleaned_df) #debug only
 # ── 5. Export results ─────────────────────────────────────────────────────────
-summary(baseline_results)
+
 
 # ── 6. Debug ─────────────────────────────────────────────────────────
-run_diagnostics(cleaned_df)
+#run_diagnostics(cleaned_df)
