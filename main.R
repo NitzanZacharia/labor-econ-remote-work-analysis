@@ -4,15 +4,28 @@
 rm(list = ls())
 source("data_processing.R")
 source("basic_regression.R")
-message("edit folder_path if needed!")
+message("edit folder paths if needed!")
 folder_path <- "G:/My Drive/Uni/econ/csv_data"
+rds_file_path <- paste0(folder_path, "/cleaned_df.rds")
 
-
-# 2. Execute data pipeline
-message("Loading and cleaning data...")
-cleaned_df <-load_and_clean_data(folder_path)
+# 2. Execute data pipeline (with caching)
+if (file.exists(rds_file_path)) {
+  message("Found saved RDS file! Loading pre-cleaned data...")
+  cleaned_df <- readRDS(rds_file_path)
+  
+} else {
+  message("Saved RDS not found. Loading and cleaning raw data...")
+  cleaned_df <- load_and_clean_data(folder_path)
+  
+  # Save the cleaned DF so we can skip this next time
+  message("Saving cleaned data to Google Drive for future use...")
+  saveRDS(cleaned_df, file = rds_file_path)
+}
 dim(cleaned_df) #remove later !
 colnames(cleaned_df) #remove later !
+#save cleaned DF instead of recleaning data
+
+
 # 3. Run different regressions
 message("Running basic regression model...")
 baseline_results <- basic_reg(cleaned_df)
