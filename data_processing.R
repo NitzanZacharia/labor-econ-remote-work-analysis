@@ -27,7 +27,12 @@ load_and_clean_data <- function(folder_path) {
       WorkMonthsThisYear = coalesce(KamaChodashimAvadBashana, KamaChodashimAvadBashanaMechusha),
       Mother                 = as.integer(MisparYeladimAd17MB > 0),
       Post                   = as.integer(ShnatSeker >= 2021),
-      Employed = as.integer(Muasak == 1),
+      Employed = case_when(
+        Muasak == 1                                             ~ 1L,
+        !is.na(Muasak)                                         ~ 0L,
+        !is.na(WorkMonthsThisYear) & WorkMonthsThisYear >= 10  ~ 1L,
+        .default                                               = NA_integer_
+      ),
       WFH = case_when(
         ShnatSeker >= 2021 & AvodaMeHaBayit == 1 ~ 1,
         ShnatSeker >= 2021 & AvodaMeHaBayit != 1 ~ 0,
