@@ -4,6 +4,7 @@
 rm(list = ls())
 source("data_processing.R")
 source("basic_regression.R")
+source("basic_reg_compared_data.R")
 source("diagnostics.R")
 
 # ── 2. Configure paths ────────────────────────────────────────────────────────
@@ -25,7 +26,7 @@ if (file.exists(rds_file_path)) {
 # ── 4. Run regressions ────────────────────────────────────────────────────────
 message("Running basic regression model...")
 baseline_results <- basic_reg(cleaned_df)
-
+comp_res <- basic_reg_comp(cleaned_df) #debug only
 # ── 5. Export results ─────────────────────────────────────────────────────────
 summary(baseline_results)
 
