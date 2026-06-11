@@ -24,6 +24,7 @@ load_and_clean_data <- function(folder_path) {
   mutated_df <- filtered_df %>%
     mutate(
       SibaAvadPachot_Unified = coalesce(SibaAvadPachot, SibaAvadPachotmechushav),
+      WorkMonthsThisYear = coalesce(KamaChodashimAvadBashana, KamaChodashimAvadBashanaMechusha),
       Mother                 = as.integer(MisparYeladimAd17MB > 0),
       Post                   = as.integer(ShnatSeker >= 2021),
       Employed               = as.integer(Muasak == 1),
