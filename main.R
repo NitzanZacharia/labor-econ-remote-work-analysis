@@ -6,6 +6,7 @@ source("data_processing.R")
 source("basic_regression.R")
 source("basic_reg_compared_data.R")
 source("diagnostics.R")
+source("employment_by_child_age.R")
 
 # ── 2. Configure paths ────────────────────────────────────────────────────────
 message("Edit folder paths if needed!")
@@ -27,8 +28,11 @@ if (file.exists(rds_file_path)) {
 message("Running basic regression model...")
 baseline_results <- basic_reg(cleaned_df)
 
-# ── 5. Export results ─────────────────────────────────────────────────────────
+# ── 5. Run descriptive stats ────────────────────────────────────────────────────────
+message("Running employment_by_child_age...")
+emp_res <-employment_by_child_age(cleaned_df)
+# ── 6. Export results ─────────────────────────────────────────────────────────
 summary(baseline_results)
 
-# ── 6. Debug ─────────────────────────────────────────────────────────
+# ── 7. Debug ─────────────────────────────────────────────────────────
 run_diagnostics(cleaned_df)

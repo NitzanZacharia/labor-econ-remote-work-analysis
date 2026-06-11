@@ -195,6 +195,9 @@ employment_by_child_age <- function(cleaned_df) {
     )
   
   # ── 7. Print plots ───────────────────────────────────────────────────────
+  # Reset graphics device in case a previous plot left it in a bad state
+  tryCatch(dev.off(), error = function(e) invisible(NULL))
+  
   print(p_raw)
   print(p_period)
   print(p_adj)
