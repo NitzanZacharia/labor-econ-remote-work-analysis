@@ -28,3 +28,6 @@ baseline_results <- basic_reg(cleaned_df)
 
 # ── 5. Export results ─────────────────────────────────────────────────────────
 summary(baseline_results)
+
+# ── 6. Debug ─────────────────────────────────────────────────────────
+run_diagnostics(cleaned_df)
