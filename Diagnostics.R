@@ -30,7 +30,12 @@ run_diagnostics <- function(cleaned_df) {
       MatzavMishpachti + Dat + TeudaGvoha + GilNK + MachozMegurim + MisparHorimYechidim,
     data = df_pt, cluster = ~IDPUF
   )
-  iplot(reg_pretrend, main = "Event-study: Mother x Year (ref = 2019)")
+  tryCatch({
+    dev.new()
+    iplot(reg_pretrend, main = "Event-study: Mother x Year (ref = 2019)")
+  }, error = function(e) {
+    message("iplot failed: ", e$message)
+  })
   
   # ── 4. Missing-value audit ────────────────────────────────────────────────
   message("=== NA counts for regression variables ===")
