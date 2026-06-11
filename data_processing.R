@@ -1,18 +1,19 @@
 library(tidyverse)
 
-load_and_clean_data <- function(folder_path) {
+load_and_clean_data <- function(folder_path, imputation = "none") {
+  # imputation: "none"         — Muasak only (original)
+  #             "AvadShana"    — Muasak + AvadShanaAchrona fallback
+  #             "WorkMonths"   — Muasak + WorkMonthsThisYear fallback
+  #             "both"         — full decision tree (both fallbacks)
   
-  # ── 1. Load raw data ────────────────────────────────────────────────────────
+  # ── 1. Load raw data ───────────────────────────────────────────────────────
   if (!dir.exists(folder_path)) stop("Target data folder not found.")
   
   data_raw <- list.files(folder_path, pattern = "\\.csv$", full.names = TRUE) %>%
     set_names() %>%
     map_df(~read_csv(.x, guess_max = 50000, show_col_types = FALSE), .id = "file_source")
   
-  # ── 2. Filter ────────────────────────────────────────────────────────────────
-  # Min == 2: women only
-  # GilNK 3–7: age groups 25–59
-  # ShnatSeker: relevant survey years (excl. 2020)
+  # ── 2. Filter ──────────────────────────────────────────────────────────────
   filtered_df <- data_raw %>%
     filter(
       Min == 2,
@@ -20,21 +21,34 @@ load_and_clean_data <- function(folder_path) {
       ShnatSeker %in% c(2017, 2018, 2019, 2021, 2022, 2023)
     )
   
-  # ── 3. Create new variables ──────────────────────────────────────────────────
+  # ── 3. Create new variables ────────────────────────────────────────────────
   mutated_df <- filtered_df %>%
     mutate(
-      SibaAvadPachot_Unified = coalesce(SibaAvadPachot, SibaAvadPachotmechushav),
-      WorkMonthsThisYear = coalesce(KamaChodashimAvadBashana, KamaChodashimAvadBashanaMechusha),
-      Mother                 = as.integer(MisparYeladimAd17MB > 0),
-      Post                   = as.integer(ShnatSeker >= 2021),
-      Employed = as.integer(Muasak == 1),
+      SibaAvadPachot_Unified    = coalesce(SibaAvadPachot, SibaAvadPachotmechushav),
+      WorkMonthsThisYear        = coalesce(KamaChodashimAvadBashana, KamaChodashimAvadBashanaMechusha),
+      Mother                    = as.integer(MisparYeladimAd17MB > 0),
+      Post                      = as.integer(ShnatSeker >= 2021),
+      Employed                  = as.integer(Muasak == 1),
+      Employed = case_when(
+        !is.na(Employed)                                        ~ Employed,
+        imputation %in% c("AvadShana", "both") &
+          AvadShanaAchrona != 1                                 ~ 0L,
+        imputation %in% c("WorkMonths", "both") &
+          !is.na(WorkMonthsThisYear) & WorkMonthsThisYear >= 10 ~ 1L,
+        .default                                                = NA_integer_
+      ),
       WFH = case_when(
         ShnatSeker >= 2021 & AvodaMeHaBayit == 1 ~ 1,
         ShnatSeker >= 2021 & AvodaMeHaBayit != 1 ~ 0,
         .default = NA_real_
       ),
       MishlachYad_ISCO_08_2 = suppressWarnings(as.numeric(MishlachYad_ISCO_08_2))
-    ) 
+    )
+  
+  # ── 4. Drop unwanted columns ───────────────────────────────────────────────
+  
+  return(df)
+}
     
   
   # ── 4. Drop unwanted columns ─────────────────────────────────────────────────
