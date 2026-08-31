@@ -6,7 +6,7 @@ source("data_processing.R")
 source("comparative_statistics.R")
 source("basic_regression.R")
 source("basic_reg_compared_data.R")
-source("diagnostics.R")
+source("Diagnostics.R")
 source("employment_by_child_age.R")
 
 # ── 2. Configure paths ────────────────────────────────────────────────────────
