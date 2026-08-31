@@ -29,6 +29,7 @@ source(file.path(project_root, "basic_regression.R"), chdir = TRUE)
 source(file.path(project_root, "basic_reg_compared_data.R"), chdir = TRUE)
 source(file.path(project_root, "Diagnostics.R"), chdir = TRUE)
 source(file.path(project_root, "employment_by_child_age.R"), chdir = TRUE)
+source(file.path(project_root, "validation.R"), chdir = TRUE)
 
 fixtures_dir <- file.path(project_root, "tests", "testthat", "fixtures")
 

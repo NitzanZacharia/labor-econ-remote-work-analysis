@@ -8,6 +8,7 @@ source("basic_regression.R")
 source("basic_reg_compared_data.R")
 source("Diagnostics.R")
 source("employment_by_child_age.R")
+source("validation.R")
 
 # ── 2. Configure paths ────────────────────────────────────────────────────────
 message("Edit folder paths if needed!")
@@ -24,6 +25,9 @@ if (file.exists(rds_file_path)) {
   message("Saving cleaned data for future use...")
   saveRDS(cleaned_df, file = rds_file_path)
 }
+
+message("Validating cleaned data...")
+validate_cleaned_df(cleaned_df)
 
 # ── 4. Comparative statistics ─────────────────────────────────────────────────
 message("Running comparative statistics...")
