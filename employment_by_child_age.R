@@ -80,21 +80,23 @@ employment_by_child_age <- function(cleaned_df) {
   print(etable(reg_age, digits = 4))
   
   # ── 5. Adjusted employment rates (margins from regression) ──────────────
-  # Predict employment probability at each bin, holding controls at means
-  pred_df <- df_mothers %>%
-    group_by(ChildAgeBin) %>%
-    slice(1) %>%                     # one row per bin
-    ungroup() %>%
-    mutate(across(all_of(controls), ~mean(df_mothers[[cur_column()]], na.rm = TRUE)))
-  
-  pred_df$adj_emp <- predict(reg_age, newdata = pred_df)
-  
+  # Recycled predictions: for each bin, set every mother's ChildAgeBin to that
+  # bin while keeping her own actual control values, predict, then average the
+  # predictions (never average the covariates themselves — several controls
+  # are nominal categorical codes with no meaningful "mean").
+  adj_emp_by_bin <- map_dfr(levels(df_mothers$ChildAgeBin), function(bin) {
+    df_temp <- df_mothers
+    df_temp$ChildAgeBin <- factor(bin, levels = levels(df_mothers$ChildAgeBin))
+    tibble(
+      ChildAgeBin = bin,
+      adj_emp     = mean(predict(reg_age, newdata = df_temp), na.rm = TRUE)
+    )
+  }) %>%
+    mutate(ChildAgeBin = factor(ChildAgeBin, levels = levels(df_mothers$ChildAgeBin)))
+
   # Merge raw n back in for label annotation
   plot_df <- emp_raw %>%
-    left_join(
-      pred_df %>% select(ChildAgeBin, adj_emp),
-      by = "ChildAgeBin"
-    )
+    left_join(adj_emp_by_bin, by = "ChildAgeBin")
   
   # ── 6. Plot ──────────────────────────────────────────────────────────────
   

@@ -28,10 +28,10 @@ load_and_clean_data <- function(folder_path) {
       Mother                 = as.integer(MisparYeladimAd17MB > 0),
       Post                   = as.integer(ShnatSeker >= 2021),
       Employed = case_when(
-        Muasak == 1                                             ~ 1L,
-        !is.na(Muasak)                                         ~ 0L,
-        !is.na(WorkMonthsThisYear) & WorkMonthsThisYear >= 10  ~ 1L,
-        .default                                               = NA_integer_
+        Muasak == 1                    ~ 1L,
+        !is.na(Muasak)                 ~ 0L,
+        !is.na(WorkMonthsThisYear)     ~ as.integer(WorkMonthsThisYear >= 10),
+        .default                       = NA_integer_
       ),
       WFH = case_when(
         ShnatSeker >= 2021 & AvodaMeHaBayit == 1 ~ 1,
@@ -39,8 +39,14 @@ load_and_clean_data <- function(folder_path) {
         .default = NA_real_
       ),
       MishlachYad_ISCO_08_2 = suppressWarnings(as.numeric(MishlachYad_ISCO_08_2))
-    ) 
-    
+    ) %>%
+    mutate(
+      across(
+        c(MatzavMishpachti, Dat, GilNK, MachozMegurim, TeudaGvoha, MisparHorimYechidim),
+        as.factor
+      )
+    )
+
   
   # ── 4. Drop unwanted columns ─────────────────────────────────────────────────
   cols_to_drop <- c(

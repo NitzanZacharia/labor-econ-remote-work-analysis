@@ -52,7 +52,7 @@ run_diagnostics <- function(cleaned_df) {
     group_by(emp_missing) %>%
     summarise(
       pct_mother = mean(Mother, na.rm = TRUE),
-      mean_age   = mean(GilNK, na.rm = TRUE),
+      mean_age   = mean(as.numeric(as.character(GilNK)), na.rm = TRUE),
       n          = n(),
       .groups    = "drop"
     )
