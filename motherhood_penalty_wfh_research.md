@@ -1,7 +1,7 @@
 # The Impact of Remote Work on the "Motherhood Penalty"
 ## An Empirical Analysis of the Israeli Labor Market in the Post-COVID Era
 
-**Researchers:** Inbal Muriel and Nitzan Zecharia (2026)
+**Researchers:** Inbal Muriel and Nitzan Zacharia (2026)
 
 ---
 
@@ -44,10 +44,10 @@
 * **Descriptive & Robustness Analysis:**
   * **Trend Analysis:** Comparing pre- and post-COVID employment trends between mothers and childless women, assessing sensitivity to the youngest child's age, and analyzing broader gender/parental employment gaps.
   * **Remote Work Potential:** Evaluating if professions with a naturally high potential for remote work (e.g., tech vs. cleaning/services) experienced a more significant reduction in the penalty.
-  * **Gender Comparison:** Replicating the models for men-comparing fathers against childless men-to determine if the identified patterns are strictly unique to mothers.
+  * **Gender Comparison:** Replicating the models for men—comparing fathers against childless men—to determine if the identified patterns are strictly unique to mothers.
 
 ### VI. Current Status and Next Steps
-* **Completed:** Collection and cleaning of the CBS datasets (2017-2023).
+* **Completed:** Collection and cleaning of the CBS datasets (2017-2023) in R.
 * **In Progress:** Running descriptive statistics and conducting the Parallel Trends test.
 * **Pending:** Estimating the primary regression models, executing robustness and heterogeneity checks, and drafting the findings and discussion sections.
 
@@ -82,3 +82,66 @@ To validate the causal interpretation of the DiD estimator, the research design 
 * **Parallel Trends Assumption:** The fundamental identifying assumption of any DiD model. The current phase of the research includes running descriptive statistics and testing pre-treatment trends (2017-2019) to verify that employment trajectories for mothers and childless women were parallel prior to the exogenous shock of the pandemic.
 * **Child Age Sensitivity Analysis:** A heterogeneity check that breaks down the treatment group based on the age of the youngest child, testing how employment rates fluctuate for mothers of infants versus older children.
 * **Gender Placebo Test:** The empirical strategy is replicated entirely for men, utilizing fathers as the treatment group and childless men as the control. This balance test ensures the observed dynamics in the primary model are uniquely tied to the motherhood penalty, rather than a broader macroeconomic shift affecting all parents.
+
+---
+
+## Part 3: Advisor Feedback & Empirical Implementation Plan
+
+### 1. Data Cleaning & Sample Selection
+* **Target Sample:** Restrict the dataset strictly to women of prime working age (25–59).
+* **Missing Values Assessment:** Systematically map available variables and missing values, differentiating between explanatory and dependent variables to determine what can be salvaged. It is permissible to drop observations with missing critical details.
+* **Variables to Exclude:** Drop the "work mobility" and "work status" variables.
+
+### 2. Dependent Variables Definition
+* **Extensive Margin (Employment Indicator):** Use the survey question regarding whether the individual "worked last week." Code as `1` for employed and `0` for all others (combining both unemployed and not in the labor force). This serves as the primary dependent variable.
+* **Intensive Margin (Work Hours):** Based on "hours worked last week / usually" (total across all jobs or main job). Since this data is provided as a categorical range, recode the values to the continuous midpoint (median) of each respective range.
+  * Review codes `11` and `12` to determine whether to merge them into existing categories or drop them entirely.
+  * Drop observations with code `99`.
+
+### 3. Explanatory Variables & Controls
+* **Categorical Collapsing:** Collapse sparse categories to ensure robust group sizes. Check for underlying correlations between independent variables (e.g., origin/ethnicity and the number of children) to avoid multicollinearity.
+* **Dummy Variables Generation:** Create standard dummy variables for:
+  * Religion
+  * Education (Certificate/Degree type)
+  * District of Residence
+
+### 4. Descriptive Statistics
+* Calculate the means of all variables to observe their distribution across different demographic and treatment groups.
+* Specifically isolate and highlight the mean of the dependent variables (e.g., baseline employment rates).
+
+### 5. Modeling Strategy
+* **Demographic Stratification:** Initially estimate the regression model in R separately for Jewish and Arab women. Based on these isolated results, make an informed decision on whether to proceed with a unified model or keep the analysis stratified.
+
+---
+
+## Part 4: Refined Empirical Strategy and Data Pipeline
+
+### 1. Data Sources and Study Population
+* **Data Source:** Microdata from the Central Bureau of Statistics (CBS) Labor Force Surveys.
+* **Timeframe:** 2017–2019 (Pre-COVID baseline) and 2021–2023 (Post-COVID period).
+* **Population:** Prime working-age individuals, categorized by parental status (determined by the age of the youngest child).
+* **Comparison Groups:** Mothers vs. childless women, fathers vs. childless men, and working vs. non-working mothers.
+
+### 2. Variable Construction
+* **Outcome Variables ($Y_{it}$):**
+  * Employment status (Binary: 1 if employed, 0 otherwise).
+  * Weekly working hours (Continuous).
+* **Treatment Variable ($Mother_i$):** A dummy variable equal to 1 if the individual is female and has at least one child up to age 17 in the household.
+* **Time Variable ($Post_t$):** A dummy variable equal to 1 for the post-COVID period (2021–2023).
+* **Control Variables ($X'_{it}$):** Years of education, age, $age^2$, marital status, religion/level of religiosity, and district of residence.
+
+### 3. Difference-in-Differences (DiD) Specification
+The core analysis utilizes a Difference-in-Differences model to estimate the impact of the transition to remote work on the motherhood penalty. The baseline regression for each occupational group is:
+$$Y_{it} = \beta_0 + \beta_1 Mother_i + \beta_2 Post_t + \beta_3 (Mother_i \times Post_t) + X'_{it}\gamma + \epsilon_{it}$$
+
+### 4. Remote Work Exposure (WFH) Mechanism
+To assess if the reduction in the motherhood penalty is driven by remote work, the sample will be aggregated by occupation type.
+* **WFH Exposure Index:** Occupations will be characterized by their remote work potential. This index will be constructed using the 2020 CBS work-from-home variable to measure actual "WFH Exposure" (e.g., comparing tech workers whose WFH share jumped from 10% to 50% against cleaning workers with a 0% change).
+* **Literature Anchoring:** WFH classifications will be cross-referenced with established literature, including WFH Research (Nick Bloom, Stanford) and Israeli policy papers (e.g., Cohen & Manor, 2024).
+* **Mechanism Regression:** A second-stage regression will test if occupations with high WFH exposure experienced a larger reduction in the penalty ($\beta_3$ from the primary model):
+$$\beta_j = \gamma_0 + \gamma_1 WFH\_Exposure_j + \epsilon_j$$
+
+### 5. Diagnostics and Robustness Checks
+* **Descriptive Statistics & Parallel Trends:** Prior to running regressions, the parallel trends assumption will be visually validated by plotting employment gaps between comparison groups over time. Additional plots will map women's employment as a function of the youngest child's age.
+* **Gender Placebo Test:** The DiD model will be replicated for men (comparing fathers to childless men). An insignificant $\beta_3$ coefficient for men will confirm that the observed effect is a specific *motherhood* penalty rather than a general *parenthood* penalty.
+* **Age of Child Sensitivity:** The analysis will be tested across different age thresholds for the youngest child (e.g., under 12), operating on the premise that younger children require more intensive care and therefore induce a higher penalty.
