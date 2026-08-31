@@ -21,28 +21,79 @@ load_and_clean_data <- function(folder_path) {
     )
   
   # ── 3. Create new variables ──────────────────────────────────────────────────
+  # ShaotAvodaBederechKlalNK bin -> median usual weekly hours (codebook: bin bounds)
+  hour_bin_median <- c(`0` = 0, `1` = 4, `2` = 11, `3` = 18, `4` = 25.5, `5` = 32,
+                        `6` = 37, `7` = 42, `8` = 47, `9` = 54.5, `10` = 78.5)
+
   mutated_df <- filtered_df %>%
     mutate(
-      SibaAvadPachot_Unified = coalesce(SibaAvadPachot, SibaAvadPachotmechushav),
-      WorkMonthsThisYear = coalesce(KamaChodashimAvadBashana, KamaChodashimAvadBashanaMechusha),
       Mother                 = as.integer(MisparYeladimAd17MB > 0),
       Post                   = as.integer(ShnatSeker >= 2021),
-      Employed = case_when(
-        Muasak == 1                    ~ 1L,
-        !is.na(Muasak)                 ~ 0L,
-        !is.na(WorkMonthsThisYear)     ~ as.integer(WorkMonthsThisYear >= 10),
-        .default                       = NA_integer_
-      ),
+      # Y: not Muasak==1 ("employed") is treated as "not working" (unemployed and
+      # not-in-labor-force are not distinguished), per project guidance.
+      Employed = if_else(!is.na(Muasak) & Muasak == 1, 1L, 0L),
       WFH = case_when(
         ShnatSeker >= 2021 & AvodaMeHaBayit == 1 ~ 1,
         ShnatSeker >= 2021 & AvodaMeHaBayit != 1 ~ 0,
         .default = NA_real_
       ),
-      MishlachYad_ISCO_08_2 = suppressWarnings(as.numeric(MishlachYad_ISCO_08_2))
+      MishlachYad_ISCO_08_2 = suppressWarnings(as.numeric(MishlachYad_ISCO_08_2)),
+
+      # Continuous work-hours variable: bins 0-10 -> their range's median; codes
+      # 11/12 (irregular hours, <35 / >=35) imputed from the sample's own median
+      # hours among regular workers in the matching range; code 99 (irregular,
+      # unknown extent) -> NA.
+      .hour_bin_val = unname(hour_bin_median[as.character(ShaotAvodaBederechKlalNK)]),
+      WorkHoursCont = case_when(
+        ShaotAvodaBederechKlalNK %in% 0:10 ~ .hour_bin_val,
+        ShaotAvodaBederechKlalNK == 11      ~ median(.hour_bin_val[ShaotAvodaBederechKlalNK %in% 1:5], na.rm = TRUE),
+        ShaotAvodaBederechKlalNK == 12      ~ median(.hour_bin_val[ShaotAvodaBederechKlalNK %in% 6:10], na.rm = TRUE),
+        .default = NA_real_
+      ),
+
+      # Education, grouped into broader categories (raw TeudaGvoha codes; 99 -> NA)
+      TeudaGvoha = factor(
+        case_when(
+          TeudaGvoha %in% c(0, 1)    ~ "Below High School",
+          TeudaGvoha == 2            ~ "High School (no matriculation)",
+          TeudaGvoha == 3            ~ "Matriculation (Bagrut)",
+          TeudaGvoha == 4            ~ "Post-secondary, non-academic",
+          TeudaGvoha %in% c(5, 6, 7) ~ "Academic Degree (BA/MA/PhD)",
+          TeudaGvoha %in% c(8, 9)    ~ "Other/No Certificate",
+          .default = NA_character_
+        ),
+        levels = c("Below High School", "High School (no matriculation)",
+                   "Matriculation (Bagrut)", "Post-secondary, non-academic",
+                   "Academic Degree (BA/MA/PhD)", "Other/No Certificate")
+      ),
+
+      # Country of birth, grouped by continent (raw SemelEretzLeda codes).
+      # Israel kept separate (dominant reference group, not a foreign continent);
+      # code 7 spans multiple continents in CBS's own coding -> "Other";
+      # code 16 is ambiguously double-labeled "unknown"/"other" in the codebook -> NA.
+      BirthContinent = factor(case_when(
+        SemelEretzLeda == 10                     ~ "Israel",
+        SemelEretzLeda %in% c(1, 6, 11, 14)      ~ "Asia",
+        SemelEretzLeda %in% c(2, 8, 12, 15)      ~ "Africa",
+        SemelEretzLeda %in% c(3, 4, 5, 13)       ~ "Europe",
+        SemelEretzLeda == 9                      ~ "North America",
+        SemelEretzLeda == 7                      ~ "Other",
+        .default = NA_character_
+      )),
+
+      # Work mobility: does she commute outside her locality of residence?
+      # (DargatNayadut: 0=didn't work, 1=works in residence locality,
+      #  2-7=commutes out (increasing distance), 8=unknown)
+      WorksOutsideLocality = case_when(
+        DargatNayadut == 1          ~ 0L,
+        DargatNayadut %in% 2:7      ~ 1L,
+        .default = NA_integer_
+      )
     ) %>%
+    select(-.hour_bin_val) %>%
     mutate(
       across(
-        c(MatzavMishpachti, Dat, GilNK, MachozMegurim, TeudaGvoha, MisparHorimYechidim),
+        c(MatzavMishpachti, Dat, GilNK, MachozMegurim, MisparHorimYechidim),
         as.factor
       )
     )
@@ -56,7 +107,7 @@ load_and_clean_data <- function(folder_path) {
     "ZminutLeAvodaMechapsim", "SibatEyZminut", "AvadEyPaamBaaretz",
     "SibaHifsikLaavod", "MatayHifsikLaavod", "ChipesBeShanaAchrona",
     "SibaLoChipesAvoda", "ZminutLeAvodaMityaashim", "MimiMekabelSachar",
-    "Leom", "YeladimAd14PratNK", "GilYeledTzairPratNK", "ShaotAvodaLemaaseNK",
+    "YeladimAd14PratNK", "GilYeledTzairPratNK", "ShaotAvodaLemaaseNK",
     "MeshechChipusAvodaNK", "ShnotLimudNK", "ShayachAvoda",
     "SibaAvadPachot10CHodashim", "LimudimVeAvoda", "MityaashimMechipusAvoda",
     "RamatHaskala_ISCED97", "RamatHaskala_ISCED2011", "ShaotOzeretMBMeubad",
@@ -82,7 +133,7 @@ load_and_clean_data <- function(folder_path) {
       "Kolel", "MisparMugbalim", "Yeshiva", "ChodeshSeker", "ShnatMidgam",
       "ChodeshMidgam", "MisparNefashotMB", "MisparNefashotNosafot",
       "YeladimAd14MBNK", "MisparNefashotMi15MB", "MisparBiltiMuasakim",
-      "MisparMuasakimMale", "SemelEretzLeda", "TtchunatAvoda", "Limudim",
+      "MisparMuasakimMale", "TtchunatAvoda", "Limudim",
       "MisparChadarimMB", "TzfifutDiyur", "ShayachimKoachAvoda", "YabeshetLeida",
       "VetekNisuinNK", "MaduaLehachlif", "SherutTaasuka", "IsukLifneyShechipes",
       "Needar", "Aliya", "Imut"

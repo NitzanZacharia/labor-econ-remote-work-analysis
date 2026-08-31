@@ -27,7 +27,7 @@ run_diagnostics <- function(cleaned_df) {
   
   reg_pretrend <- feols(
     Employed ~ Mother + i(ShnatSeker, Mother, ref = 2019) +
-      MatzavMishpachti + Dat + TeudaGvoha + GilNK + MachozMegurim + MisparHorimYechidim,
+      MatzavMishpachti + Dat + TeudaGvoha + GilNK + MachozMegurim,
     data = df_pt, cluster = ~IDPUF
   )
   tryCatch({
@@ -41,7 +41,7 @@ run_diagnostics <- function(cleaned_df) {
   message("=== NA counts for regression variables ===")
   na_summary <- cleaned_df %>%
     select(Employed, Mother, Post, MatzavMishpachti, Dat, GilNK,
-           MachozMegurim, TeudaGvoha, MisparHorimYechidim) %>%
+           MachozMegurim, TeudaGvoha) %>%
     summarise(across(everything(), ~sum(is.na(.))))
   print(na_summary)
   

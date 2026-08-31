@@ -3,6 +3,7 @@
 # ── 1. Clear environment and load modules ─────────────────────────────────────
 rm(list = ls())
 source("data_processing.R")
+source("comparative_statistics.R")
 source("basic_regression.R")
 source("basic_reg_compared_data.R")
 source("diagnostics.R")
@@ -24,15 +25,25 @@ if (file.exists(rds_file_path)) {
   saveRDS(cleaned_df, file = rds_file_path)
 }
 
-# ── 4. Run regressions ────────────────────────────────────────────────────────
+# ── 4. Comparative statistics ─────────────────────────────────────────────────
+message("Running comparative statistics...")
+comp_stats <- run_comparative_stats(cleaned_df)
+
+# ── 5. Run regressions ────────────────────────────────────────────────────────
 message("Running basic regression model...")
 baseline_results <- basic_reg(cleaned_df)
 
-# ── 5. Run descriptive stats ────────────────────────────────────────────────────────
+message("Running basic regression model — Jewish women only...")
+baseline_jewish <- basic_reg(filter(cleaned_df, Leom == 1))
+
+message("Running basic regression model — Arab women only...")
+baseline_arab <- basic_reg(filter(cleaned_df, Leom == 2))
+
+# ── 6. Run descriptive stats ────────────────────────────────────────────────────────
 message("Running employment_by_child_age...")
 emp_res <-employment_by_child_age(cleaned_df)
-# ── 6. Export results ─────────────────────────────────────────────────────────
+# ── 7. Export results ─────────────────────────────────────────────────────────
 summary(baseline_results)
 
-# ── 7. Debug ─────────────────────────────────────────────────────────
+# ── 8. Debug ─────────────────────────────────────────────────────────
 run_diagnostics(cleaned_df)

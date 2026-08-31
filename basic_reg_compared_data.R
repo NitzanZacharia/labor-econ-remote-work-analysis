@@ -11,8 +11,7 @@ basic_reg_comp <- function(cleaned_data) {
     "Dat",
     "GilNK",
     "MachozMegurim",
-    "TeudaGvoha",
-    "MisparHorimYechidim"
+    "TeudaGvoha"
   )
   
   rhs <- paste(

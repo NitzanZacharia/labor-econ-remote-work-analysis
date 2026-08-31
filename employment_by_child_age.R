@@ -64,8 +64,7 @@ employment_by_child_age <- function(cleaned_df) {
     "Dat",
     "GilNK",
     "MachozMegurim",
-    "TeudaGvoha",
-    "MisparHorimYechidim"
+    "TeudaGvoha"
   )
   
   formula_age <- as.formula(paste(
@@ -180,7 +179,7 @@ employment_by_child_age <- function(cleaned_df) {
     ) +
     labs(
       title    = "Raw vs adjusted employment rate by youngest-child age",
-      subtitle = "Controls: marital status, religiosity, age group, district, education, single-parent status",
+      subtitle = "Controls: marital status, religiosity, age group, district, education",
       x        = "Age group of youngest child",
       y        = "Employment rate",
       fill     = NULL,
