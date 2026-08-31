@@ -82,3 +82,80 @@ validate_cleaned_df <- function(cleaned_df) {
 
   invisible(TRUE)
 }
+
+# Guards the 7 positional range-drops in data_processing.R's load_and_clean_data() (e.g.
+# -(RamatDat:BituachLeumi)), which depend on the raw CSV's column *order*, not names. If a future
+# CBS data release reorders or inserts a column, those ranges could silently start dropping (or
+# keeping) the wrong columns -- no error, no warning, just wrong data downstream. This reads only
+# the header row of every CSV in folder_path and, for each of the 7 boundary-column pairs, asserts
+# the exact ordered set of column names spanned between them is identical across every file --
+# that span is exactly what select(-(a:b)) drops, so this is a direct guarantee that behavior
+# hasn't drifted between years.
+check_schema_drift <- function(folder_path) {
+  if (!dir.exists(folder_path)) {
+    stop("check_schema_drift: target data folder not found: ", folder_path)
+  }
+
+  files <- list.files(folder_path, pattern = "\\.csv$", full.names = TRUE)
+  if (length(files) == 0) {
+    stop("check_schema_drift: no CSV files found in ", folder_path)
+  }
+
+  range_pairs <- list(
+    c("Yeladim0_1Prat", "Yeladim15_17Prat"),
+    c("MisparHachlafa", "YachasKirvaNK"),
+    c("MisparNefashotGilAvodaV2007", "MisparPrat"),
+    c("ChipusAvodaSherutTaasuka", "ChipusAvodaOfenAcher"),
+    c("EizeChozemechushav", "ChodeshKodemShaa"),
+    c("MimaHaMigbala", "PniyaLmaasik"),
+    c("RamatDat", "BituachLeumi")
+  )
+
+  read_header <- function(file) {
+    first_line <- readLines(file, n = 1, warn = FALSE)
+    strsplit(first_line, ",", fixed = TRUE)[[1]]
+  }
+
+  span_names <- function(header, a, b, file) {
+    pos_a <- match(a, header)
+    pos_b <- match(b, header)
+    if (is.na(pos_a)) {
+      stop("check_schema_drift: boundary column '", a, "' not found in ", basename(file), ".")
+    }
+    if (is.na(pos_b)) {
+      stop("check_schema_drift: boundary column '", b, "' not found in ", basename(file), ".")
+    }
+    if (pos_a >= pos_b) {
+      stop("check_schema_drift: boundary columns out of order in ", basename(file), " -- '", a,
+           "' (position ", pos_a, ") is not before '", b, "' (position ", pos_b, ").")
+    }
+    header[pos_a:pos_b]
+  }
+
+  reference_file <- files[1]
+  reference_header <- read_header(reference_file)
+  reference_spans <- lapply(range_pairs, function(p) {
+    span_names(reference_header, p[1], p[2], reference_file)
+  })
+
+  for (file in files[-1]) {
+    header <- read_header(file)
+    for (i in seq_along(range_pairs)) {
+      pair <- range_pairs[[i]]
+      this_span <- span_names(header, pair[1], pair[2], file)
+      if (!identical(this_span, reference_spans[[i]])) {
+        stop(
+          "check_schema_drift: column order changed between '", basename(reference_file),
+          "' and '", basename(file), "' for the range ", pair[1], ":", pair[2], ". Expected ",
+          length(reference_spans[[i]]), " column(s) (",
+          paste(reference_spans[[i]], collapse = ", "), "), but found ", length(this_span),
+          " column(s) (", paste(this_span, collapse = ", "), "). The positional range-drop in ",
+          "data_processing.R would silently drop the wrong columns for this file -- do not ",
+          "proceed without investigating."
+        )
+      }
+    }
+  }
+
+  invisible(TRUE)
+}

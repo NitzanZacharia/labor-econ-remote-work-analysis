@@ -20,6 +20,8 @@ if (file.exists(rds_file_path)) {
   message("Found saved RDS file — loading pre-cleaned data...")
   cleaned_df <- readRDS(rds_file_path)
 } else {
+  message("Checking raw CSV schema for column-order drift...")
+  check_schema_drift(folder_path)
   message("Saved RDS not found — loading and cleaning raw data...")
   cleaned_df <- load_and_clean_data(folder_path)
   message("Saving cleaned data for future use...")
