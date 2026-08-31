@@ -15,6 +15,70 @@ your real data / your judgment).
 
 ---
 
+## Quick Start — running this with Claude Code CLI
+
+**0. Confirm Claude Code is installed and you're in the repo.**
+
+```bash
+claude --version
+cd /path/to/labor-econ-remote-work-analysis
+```
+
+Not installed? macOS/Linux/WSL: `curl -fsSL https://claude.ai/install.sh | bash`. Windows
+PowerShell: `irm https://claude.ai/install.ps1 | iex`.
+
+**1. Do the one-time setup interactively, not headless.** Start a normal session (`claude`, no `-p`)
+and say:
+
+```
+Read AUTONOMOUS_RUN_PLAN.md in full. Do the two fixes in its Section 0, then create the CLAUDE.md
+and .claude/settings.json files exactly as specified in its Section 1.
+```
+
+Review the diff it proposes, approve, let it commit.
+
+**2. Kick off Checkpoint 0 the same way** — low-risk, but worth watching once:
+
+```
+Implement Checkpoint 0 from AUTONOMOUS_RUN_PLAN.md. Follow the loop in Section 2. Stop and report
+if run_tests.R doesn't pass — don't force it green by weakening a test.
+```
+
+**3. From Checkpoint 1 onward, this is the one prompt you reuse, checkpoint by checkpoint:**
+
+```
+Implement Checkpoint <N> from AUTONOMOUS_RUN_PLAN.md, following the loop in Section 2 and the Lane
+A/Lane B split for that checkpoint. If you hit a ⛔ human gate, stop there, tell me exactly what you
+need from me, and don't proceed past it.
+```
+
+That one sentence works every time because the plan file carries all the checkpoint-specific detail —
+you're pointing at it, not retyping the Roadmap.
+
+**4. Checkpoints with no gate and no shared-file risk (0, 1, 2, most of 9) are fine to run headless
+once you trust the pattern:**
+
+```bash
+claude -p "Implement Checkpoint 2 from AUTONOMOUS_RUN_PLAN.md, Lane A only. Report pass/fail." \
+  --allowedTools "Read,Write,Edit,Bash(Rscript run_tests.R),Bash(git *)" \
+  --permission-mode acceptEdits
+```
+
+A plain interactive `claude` session now auto-approves most routine edits itself via a background
+classifier (Auto mode is the default starting mode for interactive sessions on Pro/Max/Team plans),
+so you may not need `--permission-mode` at all when working interactively. Headless (`-p`) sessions
+still default to asking before every action — without an explicit `--permission-mode` or
+`--allowedTools`, a headless run just hangs waiting for an approval no one's there to give.
+
+**5. Never run Checkpoints 3, 5, 6, or 8 headless.** Start those interactively (plain `claude`) so
+you're present for the byte-diff check and the ⛔ gates — that's the entire point of them.
+
+**6. Flags drift between CLI versions.** Run `claude --help`, or check
+[the CLI reference](https://code.claude.com/docs/en/cli-reference), before relying on any exact flag
+name above — this list reflects the CLI as of writing, not necessarily your installed version.
+
+---
+
 ## 0. Two repo issues to fix before Checkpoint 1
 
 These aren't in the Roadmap but will silently break automation if left alone.
