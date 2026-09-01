@@ -9,6 +9,7 @@ source("basic_reg_compared_data.R")
 source("Diagnostics.R")
 source("employment_by_child_age.R")
 source("validation.R")
+source("intensive_margin_regression.R")
 
 # ── 2. Configure paths ────────────────────────────────────────────────────────
 message("Edit folder paths if needed!")
@@ -44,6 +45,9 @@ baseline_jewish <- basic_reg(filter(cleaned_df, Leom == 1))
 
 message("Running basic regression model — Arab women only...")
 baseline_arab <- basic_reg(filter(cleaned_df, Leom == 2))
+
+message("Running intensive-margin (work hours) regression...")
+intensive_results <- run_intensive_margin_reg(cleaned_df)
 
 # ── 6. Run descriptive stats ────────────────────────────────────────────────────────
 message("Running employment_by_child_age...")
