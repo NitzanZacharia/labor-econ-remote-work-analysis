@@ -1,26 +1,38 @@
 # test-controls-consistency.R
-# The `controls` vector is copy-pasted identically into basic_regression.R,
-# basic_reg_compared_data.R, and employment_by_child_age.R (and inlined again in Diagnostics.R's
-# feols() formula). This test guards against the three/four copies drifting apart -- exactly the
-# kind of duplication that had to be kept in sync by hand across earlier rounds of changes to this
-# codebase.
+# Since Checkpoint 3, basic_regression.R, basic_reg_compared_data.R, employment_by_child_age.R,
+# and Diagnostics.R all reference the single DEFAULT_CONTROLS constant defined in
+# data_processing.R, rather than each defining (or inlining) their own copy. This test guards
+# against a future edit reintroducing a local copy in any of them -- exactly the kind of
+# duplication that had to be kept in sync by hand across earlier rounds of changes to this
+# codebase, before Checkpoint 3.
 
-test_that("controls vector is identical across the three files that define it", {
+test_that("DEFAULT_CONTROLS has the expected 5 controls, in the documented order", {
+  expect_identical(
+    DEFAULT_CONTROLS,
+    c("MatzavMishpachti", "Dat", "GilNK", "MachozMegurim", "TeudaGvoha")
+  )
+})
+
+test_that("controls vector is identical (== DEFAULT_CONTROLS) across the three files that define it", {
   c1 <- extract_controls_vector(file.path(project_root, "basic_regression.R"))
   c2 <- extract_controls_vector(file.path(project_root, "basic_reg_compared_data.R"))
   c3 <- extract_controls_vector(file.path(project_root, "employment_by_child_age.R"))
 
-  expect_identical(c1, c2)
-  expect_identical(c1, c3)
+  expect_identical(c1, DEFAULT_CONTROLS)
+  expect_identical(c2, DEFAULT_CONTROLS)
+  expect_identical(c3, DEFAULT_CONTROLS)
 })
 
-test_that("Diagnostics.R's inline event-study formula includes every control from the shared vector", {
-  txt <- paste(readLines(file.path(project_root, "Diagnostics.R"), warn = FALSE), collapse = "\n")
-  m <- regmatches(txt, regexpr("feols\\([\\s\\S]*?data = df_pt", txt, perl = TRUE))
-  expect_length(m, 1)
-
-  controls <- extract_controls_vector(file.path(project_root, "basic_regression.R"))
-  for (ctrl in controls) {
-    expect_true(grepl(ctrl, m, fixed = TRUE), info = ctrl)
+test_that("no file reintroduces a local `controls <- c(...)` literal instead of referencing DEFAULT_CONTROLS", {
+  for (f in c("basic_regression.R", "basic_reg_compared_data.R", "employment_by_child_age.R")) {
+    txt <- paste(readLines(file.path(project_root, f), warn = FALSE), collapse = "\n")
+    expect_false(grepl("controls\\s*<-\\s*c\\(", txt), info = f)
   }
+})
+
+test_that("Diagnostics.R's event-study formula is built from DEFAULT_CONTROLS, not a hardcoded list", {
+  txt <- paste(readLines(file.path(project_root, "Diagnostics.R"), warn = FALSE), collapse = "\n")
+  expect_true(grepl("DEFAULT_CONTROLS", txt, fixed = TRUE))
+  # and no leftover hardcoded control names inlined directly into the formula string
+  expect_false(grepl("MatzavMishpachti \\+ Dat \\+ TeudaGvoha", txt))
 })

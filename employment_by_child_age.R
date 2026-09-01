@@ -59,14 +59,8 @@ employment_by_child_age <- function(cleaned_df) {
   print(emp_by_period)
   
   # ── 4. Regression: employment ~ child-age bin (with controls) ───────────
-  controls <- c(
-    "MatzavMishpachti",
-    "Dat",
-    "GilNK",
-    "MachozMegurim",
-    "TeudaGvoha"
-  )
-  
+  controls <- DEFAULT_CONTROLS
+
   formula_age <- as.formula(paste(
     "Employed ~ ChildAgeBin",
     paste(controls, collapse = " + "),

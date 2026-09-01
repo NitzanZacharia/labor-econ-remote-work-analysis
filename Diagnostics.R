@@ -26,8 +26,10 @@ run_diagnostics <- function(cleaned_df) {
     mutate(ShnatSeker = factor(ShnatSeker, levels = c(2019, 2017, 2018, 2021, 2022, 2023)))
   
   reg_pretrend <- feols(
-    Employed ~ Mother + i(ShnatSeker, Mother, ref = 2019) +
-      MatzavMishpachti + Dat + TeudaGvoha + GilNK + MachozMegurim,
+    as.formula(paste(
+      "Employed ~ Mother + i(ShnatSeker, Mother, ref = 2019) +",
+      paste(DEFAULT_CONTROLS, collapse = " + ")
+    )),
     data = df_pt, cluster = ~IDPUF
   )
   tryCatch({

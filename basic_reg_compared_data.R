@@ -6,14 +6,8 @@ source("data_processing.R")
 basic_reg_comp <- function(cleaned_data) {
   
   # ──  Define control variables ──────────────────────────────────────────────
-  controls <- c(
-    "MatzavMishpachti",
-    "Dat",
-    "GilNK",
-    "MachozMegurim",
-    "TeudaGvoha"
-  )
-  
+  controls <- DEFAULT_CONTROLS
+
   rhs <- paste(
     "Mother + Post + Mother:Post",
     paste(controls, collapse = " + "),

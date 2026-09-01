@@ -42,14 +42,15 @@ with_null_device <- function(expr) {
   force(expr)
 }
 
-# Extracts a `controls <- c(...)` character-vector literal from a source file's text. Relies on
-# the controls block containing no nested parentheses, which holds for how it's written in this
-# codebase today.
+# Extracts the value assigned to `controls` in a source file's text -- either a `c(...)`
+# character-vector literal, or (since Checkpoint 3) a bare reference like `DEFAULT_CONTROLS`.
+# Relies on the controls assignment containing no nested parentheses in the c(...) case, which
+# holds for how it's written in this codebase today.
 extract_controls_vector <- function(file_path) {
   txt <- paste(readLines(file_path, warn = FALSE), collapse = "\n")
-  m <- regmatches(txt, regexpr("controls\\s*<-\\s*c\\([^)]*\\)", txt))
+  m <- regmatches(txt, regexpr("controls\\s*<-\\s*(c\\([^)]*\\)|[A-Za-z_][A-Za-z0-9_.]*)", txt))
   if (length(m) != 1 || !nzchar(m)) {
-    stop("Could not find a `controls <- c(...)` block in ", file_path)
+    stop("Could not find a `controls <- ...` assignment in ", file_path)
   }
-  eval(parse(text = m))
+  eval(parse(text = m), envir = globalenv())
 }

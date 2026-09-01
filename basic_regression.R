@@ -8,14 +8,8 @@ basic_reg <- function(cleaned_data) {
   
   
   # ──  Define control variables ──────────────────────────────────────────────
-  controls <- c(
-    "MatzavMishpachti",       # marital status
-    "Dat",                    # religiosity
-    "GilNK",                  # age group
-    "MachozMegurim",          # district of residence
-    "TeudaGvoha"              # education
-  )
-  
+  controls <- DEFAULT_CONTROLS
+
   # ──  Build formula ─────────────────────────────────────────────────────────
   rhs <- paste(
     "Mother + Post + Mother:Post",
