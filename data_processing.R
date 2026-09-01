@@ -5,22 +5,26 @@ library(tidyverse)
 # previously copy-pasted identically into each of those files).
 DEFAULT_CONTROLS <- c("MatzavMishpachti", "Dat", "GilNK", "MachozMegurim", "TeudaGvoha")
 
-load_and_clean_data <- function(folder_path) {
-  
+load_and_clean_data <- function(folder_path, sex_filter = c("women", "men")) {
+
+  sex_filter <- match.arg(sex_filter)
+  min_code <- if (sex_filter == "women") 2 else 1
+
   # ── 1. Load raw data ────────────────────────────────────────────────────────
   if (!dir.exists(folder_path)) stop("Target data folder not found.")
-  
+
   data_raw <- list.files(folder_path, pattern = "\\.csv$", full.names = TRUE) %>%
     set_names() %>%
     map_df(~read_csv(.x, guess_max = 50000, show_col_types = FALSE), .id = "file_source")
-  
+
   # ── 2. Filter ────────────────────────────────────────────────────────────────
-  # Min == 2: women only
+  # Min == 2 (women) or Min == 1 (men), per sex_filter -- default "women" preserves the original,
+  # unconditional Min == 2 behavior for every existing caller (Checkpoint 5: Gender Placebo Test)
   # GilNK 3–7: age groups 25–59
   # ShnatSeker: relevant survey years (excl. 2020)
   filtered_df <- data_raw %>%
     filter(
-      Min == 2,
+      Min == min_code,
       between(GilNK, 3, 7),
       ShnatSeker %in% c(2017, 2018, 2019, 2021, 2022, 2023)
     )

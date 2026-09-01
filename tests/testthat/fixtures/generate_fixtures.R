@@ -77,7 +77,17 @@ fixture_2019 <- bind_rows(
   # filtered out: age group below range (GilNK==2)
   make_row(2019018, 2019, 2, 2, 0, 0, 1, NA, 1, 1, 1, 1, 117, 4, 1, 1, 1, 1, 0),
   # filtered out: age group above range (GilNK==8)
-  make_row(2019019, 2019, 2, 8, 0, 0, 1, NA, 1, 1, 1, 1, 118, 5, 1, 1, 1, 1, 0)
+  make_row(2019019, 2019, 2, 8, 0, 0, 1, NA, 1, 1, 1, 1, 118, 5, 1, 1, 1, 1, 0),
+  # Checkpoint 5 (Gender Placebo Test): Min==1 (men) rows. Invisible to every existing test that
+  # calls load_and_clean_data(fixtures_dir) with the default sex_filter="women" (excluded by the
+  # same Min filter that already excludes IDPUF 2019017 above) -- only surfaced when
+  # sex_filter="men" is passed explicitly.
+  make_row(2019101, 2019, 1, 4, 0, 0, 1, NA, 2, 2, 3, 2, 150, 1, 1, 1, 1, 1, 0),
+  make_row(2019102, 2019, 1, 5, 1, 2, 1, NA, 6, 5, 10, 1, 151, 2, 1, 2, 2, 2, 1),
+  make_row(2019103, 2019, 1, 6, 0, 0, 2, NA, 0, 3, 1, 0, 152, 3, 2, 1, 1, 3, 0),
+  make_row(2019104, 2019, 1, 3, 2, 1, 1, NA, 7, 6, 2, 3, 153, 4, 1, 1, 2, 1, 2),
+  make_row(2019105, 2019, 1, 7, 0, 0, 1, NA, 4, 4, 9, 4, 154, 5, 1, 2, 1, 2, 0),
+  make_row(2019106, 2019, 1, 4, 1, 3, 1, NA, 8, 7, 11, 5, 155, 6, 1, 1, 1, 3, 1)
 )
 
 # ── Fixture 2: 2021-2023 (post-COVID; Post==1, WFH defined). 5 valid rows exercising WFH and
@@ -89,7 +99,12 @@ fixture_2021 <- bind_rows(
   make_row(2021004, 2022, 2, 7, 0, 0, NA, 0, 9, 3, 7, 5, 203, 4, 3, 4, 4, 4, 0),
   # filtered out: transitional year excluded
   make_row(2021005, 2020, 2, 3, 1, 1, 1, 1, 5, 2, 2, 3, 204, 1, 1, 1, 1, 1, 0),
-  make_row(2021006, 2023, 2, 4, 3, 4, 1, 1, 10, 4, 9, 6, 205, 2, 5, 5, 5, 5, 1)
+  make_row(2021006, 2023, 2, 4, 3, 4, 1, 1, 10, 4, 9, 6, 205, 2, 5, 5, 5, 5, 1),
+  # Checkpoint 5: more Min==1 (men) rows, post-period, same invisibility guarantee as above.
+  make_row(2021101, 2021, 1, 5, 1, 2, 1, 1, 6, 5, 10, 2, 250, 2, 1, 2, 2, 2, 1),
+  make_row(2021102, 2021, 1, 6, 0, 0, 1, 0, 7, 3, 1, 1, 251, 3, 2, 1, 1, 3, 0),
+  make_row(2021103, 2022, 1, 4, 1, 4, 1, 1, 9, 6, 2, 3, 252, 4, 1, 1, 2, 1, 2),
+  make_row(2021104, 2023, 1, 3, 0, 0, 2, 0, 0, 4, 9, 0, 253, 5, 1, 2, 1, 2, 0)
 )
 
 write_csv(fixture_2019, file.path("tests", "testthat", "fixtures", "sample_2019_Data.csv"))

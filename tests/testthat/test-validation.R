@@ -28,6 +28,19 @@ test_that("validate_cleaned_df passes silently on a well-formed data frame", {
   expect_silent(validate_cleaned_df(make_valid_df()))
 })
 
+test_that("validate_cleaned_df with no sex_filter argument still defaults to women (Min==2)", {
+  df <- make_valid_df()
+  df$Min[1] <- 1
+  expect_error(validate_cleaned_df(df), "Min")
+})
+
+test_that("validate_cleaned_df(sex_filter = 'men') passes on Min==1 data and rejects Min==2 data", {
+  df_men <- make_valid_df()
+  df_men$Min <- rep(1, nrow(df_men))
+  expect_silent(validate_cleaned_df(df_men, sex_filter = "men"))
+  expect_error(validate_cleaned_df(make_valid_df(), sex_filter = "men"), "Min")
+})
+
 test_that("validate_cleaned_df stops when Min != 2 is present", {
   df <- make_valid_df()
   df$Min[1] <- 1

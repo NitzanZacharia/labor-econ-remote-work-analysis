@@ -4,14 +4,17 @@
 # load_and_clean_data(), so every downstream analysis function builds on data that's been
 # verified, not assumed, correct.
 
-validate_cleaned_df <- function(cleaned_df) {
+validate_cleaned_df <- function(cleaned_df, sex_filter = c("women", "men")) {
+
+  sex_filter <- match.arg(sex_filter)
+  min_code <- if (sex_filter == "women") 2 else 1
 
   # ── Hard-fail checks: stop() immediately, these should never happen ────────
   # (thresholds/rules per docs/LLD.md's "Hard-fail checks" table)
 
-  if (!all(cleaned_df$Min == 2)) {
-    stop("validate_cleaned_df: found rows with Min != 2 -- the sex filter in load_and_clean_data() ",
-         "is supposed to guarantee women-only rows.")
+  if (!all(cleaned_df$Min == min_code)) {
+    stop("validate_cleaned_df: found rows with Min != ", min_code, " -- the sex filter in ",
+         "load_and_clean_data(sex_filter = '", sex_filter, "') is supposed to guarantee this.")
   }
 
   if (!all(as.integer(as.character(cleaned_df$GilNK)) %in% 3:7)) {

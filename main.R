@@ -10,6 +10,7 @@ source("Diagnostics.R")
 source("employment_by_child_age.R")
 source("validation.R")
 source("intensive_margin_regression.R")
+source("gender_placebo.R")
 
 # ── 2. Configure paths ────────────────────────────────────────────────────────
 message("Edit folder paths if needed!")
