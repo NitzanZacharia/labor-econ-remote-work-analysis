@@ -128,7 +128,7 @@ To validate the causal interpretation of the DiD estimator, the research design 
   * Weekly working hours (Continuous).
 * **Treatment Variable ($Mother_i$):** A dummy variable equal to 1 if the individual is female and has at least one child up to age 17 in the household.
 * **Time Variable ($Post_t$):** A dummy variable equal to 1 for the post-COVID period (2021–2023).
-* **Control Variables ($X'_{it}$):** Years of education, age, $age^2$, marital status, religion/level of religiosity, and district of residence.
+* **Control Variables ($X'_{it}$):** Years of education, age group (`GilNK`, categorical — no continuous age or birth-year variable exists in the raw CBS extract; see `docs/decisions/checkpoint8-age-age2-controls.md`), marital status, religion/level of religiosity, and district of residence.
 
 ### 3. Difference-in-Differences (DiD) Specification
 The core analysis utilizes a Difference-in-Differences model to estimate the impact of the transition to remote work on the motherhood penalty. The baseline regression for each occupational group is:
