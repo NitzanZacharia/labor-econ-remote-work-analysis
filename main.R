@@ -11,6 +11,7 @@ source("employment_by_child_age.R")
 source("validation.R")
 source("intensive_margin_regression.R")
 source("gender_placebo.R")
+source("export_results.R")
 
 # ── 2. Configure paths ────────────────────────────────────────────────────────
 message("Edit folder paths if needed!")
@@ -53,8 +54,18 @@ intensive_results <- run_intensive_margin_reg(cleaned_df)
 # ── 6. Run descriptive stats ────────────────────────────────────────────────────────
 message("Running employment_by_child_age...")
 emp_res <-employment_by_child_age(cleaned_df)
-# ── 7. Export results ─────────────────────────────────────────────────────────
-summary(baseline_results)
 
-# ── 8. Debug ─────────────────────────────────────────────────────────
-run_diagnostics(cleaned_df)
+# ── 7. Debug ─────────────────────────────────────────────────────────
+diagnostics_results <- run_diagnostics(cleaned_df)
+
+# ── 8. Export results ─────────────────────────────────────────────────────────
+message("Exporting results to outputs/...")
+export_all_results(list(
+  comparative_stats       = comp_stats,
+  basic_reg               = baseline_results,
+  basic_reg_jewish        = baseline_jewish,
+  basic_reg_arab          = baseline_arab,
+  intensive_margin        = intensive_results,
+  employment_by_child_age = emp_res,
+  diagnostics             = diagnostics_results
+))

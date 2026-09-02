@@ -4,3 +4,9 @@
 .Ruserdata
 *.csv
 !tests/testthat/fixtures/**/*.csv
+
+# Checkpoint 9: persisted output layer. Ignored by default -- these are derived from real CBS
+# microdata and several breakdowns produce small cells by construction (e.g. the Arab-women-only
+# stratified regression). Do not force-add anything under here without first confirming CBS's
+# actual disclosure rules for this extract; see docs/ROADMAP.md Checkpoint 9.
+/outputs/
