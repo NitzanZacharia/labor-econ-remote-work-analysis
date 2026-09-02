@@ -86,14 +86,20 @@ validate_cleaned_df <- function(cleaned_df, sex_filter = c("women", "men")) {
   invisible(TRUE)
 }
 
-# Guards the 7 positional range-drops in data_processing.R's load_and_clean_data() (e.g.
+# Guards the 5 remaining positional range-drops in data_processing.R's load_and_clean_data() (e.g.
 # -(RamatDat:BituachLeumi)), which depend on the raw CSV's column *order*, not names. If a future
 # CBS data release reorders or inserts a column, those ranges could silently start dropping (or
 # keeping) the wrong columns -- no error, no warning, just wrong data downstream. This reads only
-# the header row of every CSV in folder_path and, for each of the 7 boundary-column pairs, asserts
+# the header row of every CSV in folder_path and, for each tracked boundary-column pair, asserts
 # the exact ordered set of column names spanned between them is identical across every file --
 # that span is exactly what select(-(a:b)) drops, so this is a direct guarantee that behavior
 # hasn't drifted between years.
+#
+# Originally tracked 7 pairs. 2 (EizeChozemechushav:ChodeshKodemShaa, MimaHaMigbala:PniyaLmaasik)
+# were converted to explicit any_of()-based name drops in data_processing.R (2017_Data.csv lacks
+# all 4 of those boundary columns entirely, which made the positional check fail on a file that
+# was never going to contain them) and are no longer positional, so there's nothing left here to
+# check for them.
 check_schema_drift <- function(folder_path) {
   if (!dir.exists(folder_path)) {
     stop("check_schema_drift: target data folder not found: ", folder_path)
@@ -109,8 +115,6 @@ check_schema_drift <- function(folder_path) {
     c("MisparHachlafa", "YachasKirvaNK"),
     c("MisparNefashotGilAvodaV2007", "MisparPrat"),
     c("ChipusAvodaSherutTaasuka", "ChipusAvodaOfenAcher"),
-    c("EizeChozemechushav", "ChodeshKodemShaa"),
-    c("MimaHaMigbala", "PniyaLmaasik"),
     c("RamatDat", "BituachLeumi")
   )
 

@@ -132,7 +132,22 @@ load_and_clean_data <- function(folder_path, sex_filter = c("women", "men")) {
     "LehachlifAvoda", "Lehatchil60", "LoChipesMigbala", "ShnatHafsakaMityaesh",
     "SibaHifsikLaavodMityaesh", "SofShavua", "SugMachala", "SugTeuna",
     "YachalLehatchil30Mityaesh", "YamimBashavua", "ZmanLaavoda",
-    "KamaPachot_Unified"
+    "KamaPachot_Unified",
+    # Formerly dropped via 2 positional ranges (-(EizeChozemechushav:ChodeshKodemShaa) and
+    # -(MimaHaMigbala:PniyaLmaasik)); moved to explicit any_of()-based names because
+    # 2017_Data.csv lacks all 4 boundary columns entirely (confirmed: 2018-2023 have them
+    # consistently), which made the positional-range approach fail check_schema_drift() on a
+    # file that was never going to contain the columns in the first place. any_of() tolerates
+    # a name simply not existing in a given year, unlike a positional a:b range. No columns
+    # dropped here are used anywhere downstream (verified via grep before this change).
+    "EizeChozemechushav", "HaimMemunemechushav", "HaimMenahelmechushav",
+    "KamaKfufimmechushav", "KamaSchirimmechushav", "LoAvadMigbalamechushav",
+    "MaasikSchirimmechushav", "MeshechChipusAvodaMityaeshNK", "MeshechChipusAvodaMuasakNK",
+    "MigzarKalkalimechushav", "SacharMechushavmechushav", "SemelMikzoamechushav",
+    "SemelMikzoank", "ShaotAvodaBederechKlalikaritNK", "ShaotAvodaLemaaseikaritNK",
+    "SugChozemechushav", "SugMachalaPachotmechushav", "SugTeunaPachotmechushav",
+    "MigzarTziburiAnafi", "TatTaasuka_Zman", "ChodeshKodem", "ChodeshKodemShaa",
+    "MimaHaMigbala", "Mismachim", "Modaot", "OfenAcher", "Oved30", "PniyaLmaasik"
   )
   
   # Regex pattern matching any column that starts with these prefixes
@@ -158,8 +173,6 @@ load_and_clean_data <- function(folder_path, sex_filter = c("women", "men")) {
       -(MisparHachlafa:YachasKirvaNK),
       -(MisparNefashotGilAvodaV2007:MisparPrat),
       -(ChipusAvodaSherutTaasuka:ChipusAvodaOfenAcher),
-      -(EizeChozemechushav:ChodeshKodemShaa),
-      -(MimaHaMigbala:PniyaLmaasik),
       -(RamatDat:BituachLeumi)
     )
   
