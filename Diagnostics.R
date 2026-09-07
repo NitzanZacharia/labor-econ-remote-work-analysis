@@ -35,7 +35,8 @@ run_diagnostics <- function(cleaned_df) {
     )),
     data = cleaned_df, cluster = ~IDPUF
   )
-  print(etable(reg_pretrend, digits = 4))
+  pretrend_table <- etable(reg_pretrend, digits = 4)
+  print(pretrend_table)
   tryCatch({
     dev.new()
     iplot(reg_pretrend, main = "Event-study: Mother x Year (ref = 2019)")
@@ -81,6 +82,7 @@ run_diagnostics <- function(cleaned_df) {
     did_table   = did_table,
     na_summary  = na_summary,
     miss_pattern = miss_pattern,
+    pretrend_table = pretrend_table,
     pretrend_model = reg_pretrend
   ))
 }
