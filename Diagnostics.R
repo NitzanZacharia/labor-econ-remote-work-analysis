@@ -21,17 +21,21 @@ run_diagnostics <- function(cleaned_df) {
   
   # ── 3. Parallel trends — event-study plot ────────────────────────────────
   # Pre-2021 interaction coefficients should be flat if parallel trends holds.
+  # i(ShnatSeker, ref = 2019) supplies the year main effects for the Post=0
+  # group; without it, non-mothers' year-to-year variation is unmodeled and
+  # the Mother:year coefficients below conflate the mother-specific deviation
+  # with the common year trend. ref = 2019 (not factor level order) is what
+  # sets the omitted reference period in both i() terms.
   message("=== Pre-trend test (event study) ===")
-  df_pt <- cleaned_df %>%
-    mutate(ShnatSeker = factor(ShnatSeker, levels = c(2019, 2017, 2018, 2021, 2022, 2023)))
-  
+
   reg_pretrend <- feols(
     as.formula(paste(
-      "Employed ~ Mother + i(ShnatSeker, Mother, ref = 2019) +",
+      "Employed ~ Mother + i(ShnatSeker, ref = 2019) + i(ShnatSeker, Mother, ref = 2019) +",
       paste(DEFAULT_CONTROLS, collapse = " + ")
     )),
-    data = df_pt, cluster = ~IDPUF
+    data = cleaned_df, cluster = ~IDPUF
   )
+  print(etable(reg_pretrend, digits = 4))
   tryCatch({
     dev.new()
     iplot(reg_pretrend, main = "Event-study: Mother x Year (ref = 2019)")
