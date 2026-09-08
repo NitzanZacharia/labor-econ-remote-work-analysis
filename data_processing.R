@@ -34,6 +34,14 @@ load_and_clean_data <- function(folder_path, sex_filter = c("women", "men")) {
   hour_bin_median <- c(`0` = 0, `1` = 4, `2` = 11, `3` = 18, `4` = 25.5, `5` = 32,
                         `6` = 37, `7` = 42, `8` = 47, `9` = 54.5, `10` = 78.5)
 
+  # Both raw hour items (ShaotAvodaLeMaase, KamaShaot) use values in the 90s as codes
+  # ("irregular"/"unknown"), not as hour counts, so only 1-89 is a real duration. as.numeric()
+  # first because a year whose file has the column entirely empty is read as logical, not numeric.
+  hours_or_na <- function(x) {
+    v <- suppressWarnings(as.numeric(x))
+    if_else(!is.na(v) & v >= 1 & v <= 89, v, NA_real_)
+  }
+
   mutated_df <- filtered_df %>%
     mutate(
       Mother                 = as.integer(MisparYeladimAd17MB > 0),
@@ -41,12 +49,73 @@ load_and_clean_data <- function(folder_path, sex_filter = c("women", "men")) {
       # Y: not Muasak==1 ("employed") is treated as "not working" (unemployed and
       # not-in-labor-force are not distinguished), per project guidance.
       Employed = if_else(!is.na(Muasak) & Muasak == 1, 1L, 0L),
+      # ── WFH block (raw columns AvodaMeHaBayit / AvadMeHaBayit / KamaShaot) ──
+      # Asked from 2021 onward only -- the columns exist in the 2018-2023 schema but are empty in
+      # 100% of pre-2021 rows, so everything here is NA by design before 2021.
+      #
+      # CBS codes both yes/no items as 1 = yes, 2 = no, 9 = unknown. 9 must map to NA, NOT to 0:
+      # the previous `AvodaMeHaBayit != 1 ~ 0` rule silently recoded 2,920 "unknown" responses in
+      # 2021 alone (2.4% of employed) as "does not work from home".
+      #
+      # WFH ("usual work location", asked of every employed person) is kept as the headline
+      # measure for backward compatibility, but WFH_RefWeek is the better-behaved series: WFH's
+      # level drifts implausibly across years (15.3% -> 12.7% -> 12.4% among employed women 25-59)
+      # while WFH_RefWeek is stable (18.3% -> 19.2% -> 19.3%), and WFH_RefWeek correlates more
+      # strongly with the external teleworkability benchmark at ISCO-2 level (0.833 vs 0.796).
       WFH = case_when(
-        ShnatSeker >= 2021 & AvodaMeHaBayit == 1 ~ 1,
-        ShnatSeker >= 2021 & AvodaMeHaBayit != 1 ~ 0,
+        ShnatSeker < 2021   ~ NA_real_,
+        AvodaMeHaBayit == 1 ~ 1,
+        AvodaMeHaBayit == 2 ~ 0,
+        .default = NA_real_          # code 9 ("unknown") and genuine missingness
+      ),
+      # Reference-week behaviour. Asked only of the employed who actually worked that week
+      # (AvadBeshavua == 1), so the ~10,955 employed-but-absent per year are legitimately NA
+      # rather than 0.
+      WFH_RefWeek = case_when(
+        ShnatSeker < 2021  ~ NA_real_,
+        AvadMeHaBayit == 1 ~ 1,
+        AvadMeHaBayit == 2 ~ 0,
         .default = NA_real_
       ),
-      MishlachYad_ISCO_08_2 = suppressWarnings(as.numeric(MishlachYad_ISCO_08_2)),
+      # Intensity. KamaShaot is asked only of WFH_RefWeek == 1 (verified: its non-empty count
+      # equals the AvadMeHaBayit == 1 count exactly), and is hours worked from home in the
+      # reference week -- confirmed KamaShaot <= ShaotAvodaLeMaase in 18,619/18,619 cases.
+      # Values 90-97 in both hour items are CBS codes ("irregular"/"unknown"), not hour counts:
+      # every KamaShaot == 97 is paired with ShaotAvodaLeMaase == 97, so they are excluded.
+      .hrs_home  = hours_or_na(KamaShaot),
+      .hrs_total = hours_or_na(ShaotAvodaLeMaase),
+      WFH_Hours = case_when(
+        WFH_RefWeek == 0 ~ 0,
+        WFH_RefWeek == 1 ~ .hrs_home,
+        .default = NA_real_
+      ),
+      WFH_Share = case_when(
+        WFH_RefWeek == 0                  ~ 0,
+        WFH_RefWeek == 1 & .hrs_total > 0 ~ pmin(.hrs_home / .hrs_total, 1),
+        .default = NA_real_
+      ),
+      WFH_Arrangement = factor(
+        case_when(
+          is.na(WFH_Share) ~ NA_character_,
+          WFH_Share == 0   ~ "On-site",
+          WFH_Share < 0.9  ~ "Hybrid",
+          .default         = "Fully remote"
+        ),
+        levels = c("On-site", "Hybrid", "Fully remote")
+      ),
+
+      # ── ISCO-08 occupation code ────────────────────────────────────────────
+      # CBS disclosure-masks this field: alongside real codes it contains "XX", "1X", "7X", ...
+      # 9,303 of 123,794 employed 2021 rows (7.5%) are masked across the whole file, though only
+      # 2.4% within this project's analysis sample (employed women 25-59) -- masking concentrates
+      # in thinly-populated occupation cells. as.numeric() turns all of those into NA, which the
+      # exposure-index join then drops without a word, so the mask is now recorded explicitly
+      # (ISCO_masked) and the 1-digit major group is recovered where it survives the mask (ISCO1),
+      # giving a coarser but usable fallback.
+      .isco_chr = as.character(MishlachYad_ISCO_08_2),
+      MishlachYad_ISCO_08_2 = suppressWarnings(as.numeric(.isco_chr)),
+      ISCO_masked = !is.na(.isco_chr) & is.na(MishlachYad_ISCO_08_2),
+      ISCO1 = suppressWarnings(as.numeric(str_sub(.isco_chr, 1, 1))),
 
       # Continuous work-hours variable: bins 0-10 -> their range's median; codes
       # 11/12 (irregular hours, <35 / >=35) imputed from the sample's own median
@@ -99,7 +168,7 @@ load_and_clean_data <- function(folder_path, sex_filter = c("women", "men")) {
         .default = NA_integer_
       )
     ) %>%
-    select(-.hour_bin_val) %>%
+    select(-.hour_bin_val, -.hrs_home, -.hrs_total, -.isco_chr) %>%
     mutate(
       across(
         c(MatzavMishpachti, Dat, GilNK, MachozMegurim, MisparHorimYechidim),

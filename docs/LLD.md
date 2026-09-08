@@ -85,8 +85,8 @@ Derived from [`docs/HLD.md`](HLD.md) and the actual current state of the reposit
 | 69 | `Siba35` | numeric | Raw passthrough |
 | 70 | `YoterShaot` | numeric | Raw passthrough |
 | 71 | `AvodaMeHaBayit` | numeric | Raw passthrough (source of `WFH`) |
-| 72 | `AvadMeHaBayit` | numeric | Raw passthrough |
-| 73 | `KamaShaot` | numeric | Raw passthrough |
+| 72 | `AvadMeHaBayit` | numeric | Raw passthrough (source of `WFH_RefWeek`) |
+| 73 | `KamaShaot` | numeric | Raw passthrough (source of `WFH_Hours` / `WFH_Share`) |
 | 74 | `HichlifAvoda` | numeric | Raw passthrough |
 | 75 | `Mother` | integer | Derived |
 | 76 | `Post` | integer | Derived |
@@ -105,7 +105,13 @@ Derived from [`docs/HLD.md`](HLD.md) and the actual current state of the reposit
 | `Employed` | integer | `{0, 1}` | **0.000%** | `1` iff `Muasak == 1`, else `0` (unemployed + not-in-labor-force both → `0`) |
 | `Mother` | integer | `{0, 1}` | **0.000%** | `1` iff `MisparYeladimAd17MB > 0` |
 | `Post` | integer | `{0, 1}` | **0.000%** | `1` iff `ShnatSeker >= 2021` |
-| `WFH` | numeric | `{0, 1}` | 63.938% | Only defined for `ShnatSeker >= 2021`; `NA` for all pre-2021 rows *by design* (question wasn't asked) |
+| `WFH` | numeric | `{0, 1}` | 64.726% | Usual work location, from `AvodaMeHaBayit`: `1`→`1`, `2`→`0`, `9` ("unknown")→**`NA`**, blank→`NA`. Only defined for `ShnatSeker >= 2021`; `NA` for all pre-2021 rows *by design* (question wasn't asked). The NA rate rose from 63.938% when code `9` stopped being silently recoded as `0` |
+| `WFH_RefWeek` | numeric | `{0, 1}` | 68.629% | Reference-week behaviour, from `AvadMeHaBayit`, same code mapping. Asked only of the employed who worked that week (`AvadBeshavua == 1`), so the employed-but-absent are `NA`, not `0`. Disagrees with `WFH` in both directions — 6,182 rows in 2021 answer "no" to usual and "yes" to reference-week |
+| `WFH_Hours` | numeric | `[0, 84]` | 68.648% | Hours worked from home in the reference week, from `KamaShaot` (asked only when `WFH_RefWeek == 1`). `0` when `WFH_RefWeek == 0`; `NA` when either hour item carries a CBS code in the 90s ("irregular"/"unknown") |
+| `WFH_Share` | numeric | `[0, 1]` | 68.659% | `WFH_Hours / ShaotAvodaLeMaase`, capped at 1. `0` when `WFH_RefWeek == 0`; `NA` whenever `WFH_RefWeek` is `NA` or either hour item is a 90s code. Verified `KamaShaot <= ShaotAvodaLeMaase` in 18,619/18,619 valid 2021 cases |
+| `WFH_Arrangement` | factor (3 levels) | `On-site` (91,480), `Hybrid` (15,685), `Fully remote` (9,655) | 68.659% | Binned from `WFH_Share`: `0` → On-site, `(0, 0.9)` → Hybrid, `>= 0.9` → Fully remote |
+| `ISCO_masked` | logical | `{TRUE, FALSE}` | **0.000%** | `TRUE` where the raw `MishlachYad_ISCO_08_2` held a CBS disclosure mask (`XX`, `7X`, …) rather than a code. 2.365% of the analysis sample; 7.5% of all employed in the raw 2021 file, since masking concentrates in thin occupation cells |
+| `ISCO1` | numeric | `[1, 9]` | 18.052% | 1-digit ISCO-08 major group, recovered from the first character of the raw code so partially-masked values (`7X` → `7`) survive. Non-`NA` for 231 employed 2021 rows that `MishlachYad_ISCO_08_2` loses entirely |
 | `WorkHoursCont` | numeric | `[0, 78.5]` | 0.001% (3 rows) | Bin-median lookup for `ShaotAvodaBederechKlalNK` codes 0–10; sample-median imputation for codes 11/12; `NA` for code 99 |
 | `TeudaGvoha` | factor (6 levels) | `Below High School`, `High School (no matriculation)`, `Matriculation (Bagrut)`, `Post-secondary, non-academic`, `Academic Degree (BA/MA/PhD)`, `Other/No Certificate` | 2.135% | Collapsed from 11 raw codes; `NA` reserved for raw code 99 ("unknown") |
 | `BirthContinent` | factor (6 levels) | `Africa`, `Asia`, `Europe`, `Israel`, `North America`, `Other` | 0.218% | Collapsed from 16 raw `SemelEretzLeda` codes; `NA` reserved for raw code 16 (ambiguous "unknown"/"other" in CBS's own codebook) |

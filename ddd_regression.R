@@ -1,4 +1,4 @@
-#ddd_regression
+# ddd_regression.R
 # Checkpoint 7 (docs/ROADMAP.md): the Triple-Differences mechanism test (research doc Part 2 §2 /
 # Part 4 §4), testing whether the narrowing of the motherhood penalty is actually driven by an
 # occupation's WFH exposure. Depends on Checkpoint 6's build_wfh_exposure_index().
@@ -31,9 +31,7 @@ run_ddd_regression <- function(cleaned_df, exposure_index, controls = DEFAULT_CO
   # ── Model 2: second-stage mechanism regression ──────────────────────────────
   # For each occupation in exposure_index, run basic_reg() on that occupation's subset of df_ddd
   # and extract its Mother:Post estimate (beta_j). Occupations with too little data for basic_reg()
-  # to fit (e.g. very small n -- see the sample-size spread already flagged in Checkpoint 6) are
-  # dropped from the mechanism regression rather than erroring the whole function; how many and
-  # which are reported, not silently discarded.
+  # to fit (e.g. very small n) are dropped from the mechanism regression rather than erroring the whole function.
   beta_j <- vapply(exposure_index$occupation_code, function(code) {
     df_occ <- filter(df_ddd, MishlachYad_ISCO_08_2 == code)
     fit <- tryCatch({

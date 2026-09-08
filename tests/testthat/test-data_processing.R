@@ -127,10 +127,95 @@ test_that("WorksOutsideLocality: DargatNayadut 1->0, 2-7->1, 0/8->NA", {
   expect_true(is.na(cleaned$WorksOutsideLocality[cleaned$IDPUF == 2019009]))  # raw 0
 })
 
+# ── WFH block ───────────────────────────────────────────────────────────────
+# CBS codes both yes/no items 1 = yes, 2 = no, 9 = unknown, blank = not asked. The fixtures now
+# use those real codes (they previously used an impossible 1/0/NA), which is what lets the code-9
+# case below actually be tested.
+by_id <- function(col, id) cleaned[[col]][cleaned$IDPUF == id]
+
 test_that("WFH: defined only for ShnatSeker >= 2021, NA pre-2021", {
+  # pre-2021 rows carry a real ShaotAvodaLeMaase but an empty WFH module, so the year guard --
+  # not merely missing inputs -- is what has to produce the NA
   expect_true(all(is.na(cleaned$WFH[cleaned$ShnatSeker < 2021])))
-  expect_equal(cleaned$WFH[cleaned$IDPUF == 2021001], 1)  # AvodaMeHaBayit == 1
-  expect_equal(cleaned$WFH[cleaned$IDPUF == 2021002], 0)  # AvodaMeHaBayit == 0
+  expect_true(all(is.na(cleaned$WFH_RefWeek[cleaned$ShnatSeker < 2021])))
+  expect_true(all(is.na(cleaned$WFH_Share[cleaned$ShnatSeker < 2021])))
+})
+
+test_that("WFH: code 1 -> 1, code 2 -> 0, code 9 ('unknown') -> NA, not asked -> NA", {
+  expect_equal(by_id("WFH", 2021001), 1)   # AvodaMeHaBayit == 1
+  expect_equal(by_id("WFH", 2021002), 0)   # AvodaMeHaBayit == 2
+  expect_true(is.na(by_id("WFH", 2021003)))  # AvodaMeHaBayit == 9 -- must NOT become 0
+  expect_true(is.na(by_id("WFH", 2021004)))  # AvodaMeHaBayit blank
+})
+
+test_that("WFH_RefWeek is independent of WFH: 'usually no' but worked from home all week", {
+  # 6,182 real 2021 rows answer 2 to the usual item and 1 to the reference-week item
+  expect_equal(by_id("WFH", 2021006), 0)
+  expect_equal(by_id("WFH_RefWeek", 2021006), 1)
+  expect_equal(by_id("WFH_RefWeek", 2021002), 0)
+  expect_true(is.na(by_id("WFH_RefWeek", 2021003)))  # code 9
+})
+
+test_that("WFH_Hours / WFH_Share / WFH_Arrangement follow from the hours items", {
+  # 20 of 40 hours from home
+  expect_equal(by_id("WFH_Hours", 2021001), 20)
+  expect_equal(by_id("WFH_Share", 2021001), 0.5)
+  expect_equal(as.character(by_id("WFH_Arrangement", 2021001)), "Hybrid")
+
+  # did not work from home -> zero hours, zero share, on-site (not NA)
+  expect_equal(by_id("WFH_Hours", 2021002), 0)
+  expect_equal(by_id("WFH_Share", 2021002), 0)
+  expect_equal(as.character(by_id("WFH_Arrangement", 2021002)), "On-site")
+
+  # 40 of 40 hours from home
+  expect_equal(by_id("WFH_Share", 2021006), 1)
+  expect_equal(as.character(by_id("WFH_Arrangement", 2021006)), "Fully remote")
+
+  expect_true(is.na(by_id("WFH_Share", 2021003)))
+  expect_true(is.na(by_id("WFH_Arrangement", 2021003)))
+})
+
+test_that("WFH_Share never exceeds 1 and is 0 or NA whenever WFH_RefWeek is not 1", {
+  expect_true(all(cleaned$WFH_Share <= 1, na.rm = TRUE))
+  expect_true(all(cleaned$WFH_Share[!is.na(cleaned$WFH_RefWeek) & cleaned$WFH_RefWeek == 0] == 0))
+  expect_true(all(is.na(cleaned$WFH_Share[is.na(cleaned$WFH_RefWeek)])))
+})
+
+test_that("hour codes in the 90s are treated as codes, not as hour counts", {
+  # KamaShaot == 97 paired with ShaotAvodaLeMaase == 97 is CBS's "irregular/unknown" code (every
+  # one of the 73 such 2021 rows is paired this way), so hours/share must be NA even though the
+  # yes/no items are answered. Only present on a men row, hence the second load.
+  cleaned_men <- load_and_clean_data(fixtures_dir, sex_filter = "men")
+  expect_equal(cleaned_men$WFH[cleaned_men$IDPUF == 2021101], 1)
+  expect_equal(cleaned_men$WFH_RefWeek[cleaned_men$IDPUF == 2021101], 1)
+  expect_true(is.na(cleaned_men$WFH_Hours[cleaned_men$IDPUF == 2021101]))
+  expect_true(is.na(cleaned_men$WFH_Share[cleaned_men$IDPUF == 2021101]))
+  expect_true(is.na(cleaned_men$WFH_Arrangement[cleaned_men$IDPUF == 2021101]))
+
+  # employed but absent in the reference week -> usual item answered, ref-week item NA
+  expect_equal(cleaned_men$WFH[cleaned_men$IDPUF == 2021103], 1)
+  expect_true(is.na(cleaned_men$WFH_RefWeek[cleaned_men$IDPUF == 2021103]))
+})
+
+test_that("ISCO: disclosure-masked codes are flagged, and the 1-digit group is recovered", {
+  # unmasked "200" -> numeric 200, ISCO1 == 2
+  expect_equal(by_id("MishlachYad_ISCO_08_2", 2021001), 200)
+  expect_false(by_id("ISCO_masked", 2021001))
+  expect_equal(by_id("ISCO1", 2021001), 2)
+
+  # fully masked "XX" -> no numeric code, no 1-digit fallback, but flagged
+  expect_true(is.na(by_id("MishlachYad_ISCO_08_2", 2021003)))
+  expect_true(by_id("ISCO_masked", 2021003))
+  expect_true(is.na(by_id("ISCO1", 2021003)))
+
+  # partially masked "7X" -> no 2-digit code, but the major group survives
+  expect_true(is.na(by_id("MishlachYad_ISCO_08_2", 2021006)))
+  expect_true(by_id("ISCO_masked", 2021006))
+  expect_equal(by_id("ISCO1", 2021006), 7)
+
+  # the flag is never NA, and is TRUE for exactly the rows carrying a masked code
+  expect_false(any(is.na(cleaned$ISCO_masked)))
+  expect_setequal(cleaned$IDPUF[cleaned$ISCO_masked], c(2019016, 2021003, 2021006))
 })
 
 test_that("Mother: derived from MisparYeladimAd17MB > 0", {

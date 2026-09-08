@@ -29,22 +29,31 @@ range_boundary_cols <- c(
 # exist for run_diagnostics() to run against these fixtures without a "column doesn't exist" error.
 diagnostics_peek_cols <- c(
   "Oved35Shaot", "MisraMelea", "SibaLeAvodaChelkit", "AvadShanaAchrona",
-  "KamaChodashimAvadBashana", "SibaLoAvadHashana", "ShaotIkarit", "AvadMeHaBayit", "KamaShaot"
+  "KamaChodashimAvadBashana", "SibaLoAvadHashana", "ShaotIkarit"
 )
 
+# AvadMeHaBayit / KamaShaot / ShaotAvodaLeMaase default to NA so the pre-2021 rows below (where
+# the real CBS files leave the whole WFH module empty) don't have to spell them out; the 2021+
+# rows pass them explicitly to exercise each branch of the WFH block in data_processing.R.
+# MishlachYad_ISCO_08_2 is written as character on purpose: the real extract carries CBS's
+# disclosure mask ("XX", "7X", ...) in every year, so read_csv() always types it as character.
 make_row <- function(IDPUF, ShnatSeker, Min, GilNK, MisparYeladimAd17MB, GilYeledTzairMBNK,
                       Muasak, AvodaMeHaBayit, ShaotAvodaBederechKlalNK, TeudaGvoha,
                       SemelEretzLeda, DargatNayadut, MishlachYad_ISCO_08_2, MachozYishuvAvoda,
-                      Leom, MatzavMishpachti, Dat, MachozMegurim, MisparHorimYechidim) {
+                      Leom, MatzavMishpachti, Dat, MachozMegurim, MisparHorimYechidim,
+                      AvadMeHaBayit = NA, KamaShaot = NA, ShaotAvodaLeMaase = NA) {
   row <- tibble(
     IDPUF = IDPUF, ShnatSeker = ShnatSeker, Min = Min, GilNK = GilNK,
     MisparYeladimAd17MB = MisparYeladimAd17MB, GilYeledTzairMBNK = GilYeledTzairMBNK,
     Muasak = Muasak, AvodaMeHaBayit = AvodaMeHaBayit,
     ShaotAvodaBederechKlalNK = ShaotAvodaBederechKlalNK, TeudaGvoha = TeudaGvoha,
     SemelEretzLeda = SemelEretzLeda, DargatNayadut = DargatNayadut,
-    MishlachYad_ISCO_08_2 = MishlachYad_ISCO_08_2, MachozYishuvAvoda = MachozYishuvAvoda,
+    MishlachYad_ISCO_08_2 = as.character(MishlachYad_ISCO_08_2),
+    MachozYishuvAvoda = MachozYishuvAvoda,
     Leom = Leom, MatzavMishpachti = MatzavMishpachti, Dat = Dat, MachozMegurim = MachozMegurim,
-    MisparHorimYechidim = MisparHorimYechidim
+    MisparHorimYechidim = MisparHorimYechidim,
+    AvadMeHaBayit = AvadMeHaBayit, KamaShaot = KamaShaot,
+    ShaotAvodaLeMaase = ShaotAvodaLeMaase
   )
   for (col in range_boundary_cols) row[[col]] <- 0
   for (col in diagnostics_peek_cols) row[[col]] <- 0
@@ -56,7 +65,8 @@ make_row <- function(IDPUF, ShnatSeker, Min, GilNK, MisparYeladimAd17MB, GilYele
 # DargatNayadut (0-8), Muasak (1/2/NA), Leom (1/2/3) — plus 3 rows designed to be filtered out
 # (Min!=2, GilNK out of 3:7 range).
 fixture_2019 <- bind_rows(
-  make_row(2019001, 2019, 2, 3, 0, 0, 1, NA, 0, 0, 10, 1, 100, 1, 1, 1, 1, 1, 0),
+  make_row(2019001, 2019, 2, 3, 0, 0, 1, NA, 0, 0, 10, 1, 100, 1, 1, 1, 1, 1, 0,
+            ShaotAvodaLeMaase = 40),
   make_row(2019002, 2019, 2, 4, 1, 1, 2, NA, 1, 1, 1, 2, 101, 2, 2, 2, 2, 2, 1),
   make_row(2019003, 2019, 2, 5, 0, 0, NA, NA, 2, 2, 2, 3, 102, 3, 3, 3, 3, 3, 0),
   make_row(2019004, 2019, 2, 6, 2, 2, 1, NA, 3, 3, 3, 4, 103, 4, 1, 4, 4, 4, 2),
@@ -71,7 +81,8 @@ fixture_2019 <- bind_rows(
   make_row(2019013, 2019, 2, 5, 0, 0, 1, NA, 12, 1, 13, 4, 112, 6, 1, 3, 3, 6, 0),
   make_row(2019014, 2019, 2, 6, 1, 1, 1, NA, 99, 2, 14, 5, 113, 7, 1, 4, 4, 7, 1),
   make_row(2019015, 2019, 2, 7, 0, 0, 1, NA, 0, 3, 15, 6, 114, 1, 1, 5, 5, 1, 0),
-  make_row(2019016, 2019, 2, 3, 1, 2, 1, NA, 0, 4, 16, 7, 115, 2, 1, 1, 1, 2, 1),
+  make_row(2019016, 2019, 2, 3, 1, 2, 1, NA, 0, 4, 16, 7, "XX", 2, 1, 1, 1, 2, 1,
+            ShaotAvodaLeMaase = 35),
   # filtered out: wrong sex
   make_row(2019017, 2019, 1, 4, 0, 0, 1, NA, 1, 1, 1, 1, 116, 3, 1, 1, 1, 1, 0),
   # filtered out: age group below range (GilNK==2)
@@ -93,18 +104,26 @@ fixture_2019 <- bind_rows(
 # ── Fixture 2: 2021-2023 (post-COVID; Post==1, WFH defined). 5 valid rows exercising WFH and
 # Post/year filtering, plus 1 row with ShnatSeker==2020 that must be filtered out entirely.
 fixture_2021 <- bind_rows(
-  make_row(2021001, 2021, 2, 4, 1, 2, 1, 1, 6, 5, 10, 2, 200, 1, 1, 1, 1, 1, 0),
-  make_row(2021002, 2021, 2, 5, 0, 0, 1, 0, 7, 6, 1, 1, 201, 2, 2, 2, 2, 2, 1),
-  make_row(2021003, 2021, 2, 6, 2, 3, 2, 1, 0, 99, 16, 8, 202, 3, 1, 3, 3, 3, 2),
-  make_row(2021004, 2022, 2, 7, 0, 0, NA, 0, 9, 3, 7, 5, 203, 4, 3, 4, 4, 4, 0),
+  make_row(2021001, 2021, 2, 4, 1, 2, 1, 1, 6, 5, 10, 2, 200, 1, 1, 1, 1, 1, 0,
+            AvadMeHaBayit = 1, KamaShaot = 20, ShaotAvodaLeMaase = 40),
+  make_row(2021002, 2021, 2, 5, 0, 0, 1, 2, 7, 6, 1, 1, 201, 2, 2, 2, 2, 2, 1,
+            AvadMeHaBayit = 2, ShaotAvodaLeMaase = 40),
+  make_row(2021003, 2021, 2, 6, 2, 3, 2, 9, 0, 99, 16, 8, "XX", 3, 1, 3, 3, 3, 2,
+            AvadMeHaBayit = 9),
+  make_row(2021004, 2022, 2, 7, 0, 0, NA, NA, 9, 3, 7, 5, 203, 4, 3, 4, 4, 4, 0),
   # filtered out: transitional year excluded
   make_row(2021005, 2020, 2, 3, 1, 1, 1, 1, 5, 2, 2, 3, 204, 1, 1, 1, 1, 1, 0),
-  make_row(2021006, 2023, 2, 4, 3, 4, 1, 1, 10, 4, 9, 6, 205, 2, 5, 5, 5, 5, 1),
+  make_row(2021006, 2023, 2, 4, 3, 4, 1, 2, 10, 4, 9, 6, "7X", 2, 5, 5, 5, 5, 1,
+            AvadMeHaBayit = 1, KamaShaot = 40, ShaotAvodaLeMaase = 40),
   # Checkpoint 5: more Min==1 (men) rows, post-period, same invisibility guarantee as above.
-  make_row(2021101, 2021, 1, 5, 1, 2, 1, 1, 6, 5, 10, 2, 250, 2, 1, 2, 2, 2, 1),
-  make_row(2021102, 2021, 1, 6, 0, 0, 1, 0, 7, 3, 1, 1, 251, 3, 2, 1, 1, 3, 0),
-  make_row(2021103, 2022, 1, 4, 1, 4, 1, 1, 9, 6, 2, 3, 252, 4, 1, 1, 2, 1, 2),
-  make_row(2021104, 2023, 1, 3, 0, 0, 2, 0, 0, 4, 9, 0, 253, 5, 1, 2, 1, 2, 0)
+  make_row(2021101, 2021, 1, 5, 1, 2, 1, 1, 6, 5, 10, 2, 250, 2, 1, 2, 2, 2, 1,
+            AvadMeHaBayit = 1, KamaShaot = 97, ShaotAvodaLeMaase = 97),
+  make_row(2021102, 2021, 1, 6, 0, 0, 1, 2, 7, 3, 1, 1, 251, 3, 2, 1, 1, 3, 0,
+            AvadMeHaBayit = 2, ShaotAvodaLeMaase = 30),
+  make_row(2021103, 2022, 1, 4, 1, 4, 1, 1, 9, 6, 2, 3, 252, 4, 1, 1, 2, 1, 2,
+            ShaotAvodaLeMaase = 45),
+  make_row(2021104, 2023, 1, 3, 0, 0, 2, 2, 0, 4, 9, 0, 253, 5, 1, 2, 1, 2, 0,
+            AvadMeHaBayit = 2, ShaotAvodaLeMaase = 20)
 )
 
 write_csv(fixture_2019, file.path("tests", "testthat", "fixtures", "sample_2019_Data.csv"))

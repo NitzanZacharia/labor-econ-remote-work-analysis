@@ -13,9 +13,14 @@ source("intensive_margin_regression.R")
 source("gender_placebo.R")
 source("export_results.R")
 
+# Load modules required for the WFH exposure index and DDD mechanism test
+source("wfh_exposure_index.R")
+source("wfh_exposure_cells.R")
+source("ddd_regression.R")
+
 # ── 2. Configure paths ────────────────────────────────────────────────────────
 message("Edit folder paths if needed!")
-folder_path   <- "G:/My Drive/Uni/econ/csv_data"
+folder_path   <- "csvs"
 rds_file_path <- paste0(folder_path, "/cleaned_df.rds")
 
 # ── 3. Execute data pipeline (with caching) ───────────────────────────────────
@@ -53,10 +58,15 @@ intensive_results <- run_intensive_margin_reg(cleaned_df)
 
 # ── 6. Run descriptive stats ────────────────────────────────────────────────────────
 message("Running employment_by_child_age...")
-emp_res <-employment_by_child_age(cleaned_df)
+emp_res <- employment_by_child_age(cleaned_df)
 
 # ── 7. Debug ─────────────────────────────────────────────────────────
+# Diagnostics.R's event-study plot draws to whatever device is active rather than opening its own
+# (see the comment there) -- wrap the call in an explicit device targeting outputs/ so a real run
+# produces a saved plot instead of leaking an auto-numbered Rplots*.pdf into the repo root.
+pdf(file.path("outputs", "event_study_pretrend.pdf"))
 diagnostics_results <- run_diagnostics(cleaned_df)
+dev.off()
 
 # ── 8. Export results ─────────────────────────────────────────────────────────
 message("Exporting results to outputs/...")
@@ -69,3 +79,101 @@ export_all_results(list(
   employment_by_child_age = emp_res,
   diagnostics             = diagnostics_results
 ))
+
+# ── 9. WFH-Exposure Measures & DDD Regression ─────────────────────────────────
+# Four separate measures, four separate purposes. They are NOT combined into one "best" index fed
+# to a single regression -- an earlier version of this section did that (swapping the theoretical
+# index for realized-2022-23 values above an arbitrary gap threshold, with no account of sampling
+# noise), which both contaminated the DDD's exposure regressor with post-treatment behavior and
+# let a 4-observation occupation cell (ISCO 63) swing the ranking. See
+# C:\Users\Inbal\.claude\plans\shimmying-bouncing-pelican.md for the full argument.
+message("Building the WFH-exposure measures...")
+
+# (a) External, exogenous teleworkability (Dingel & Neiman via O*NET/SOC->ISCO crosswalk).
+# Pre-period by construction, immune to Israel's own COVID-era WFH behavior -- but a US-task-based
+# measure, so it misclassifies occupations where Israeli institutional practice diverges sharply
+# (teaching is the clear case: D&N scores it near-ceiling teleworkable, but Israeli schools stayed
+# in-person by Ministry of Education policy).
+exposure_external <- build_exposure_isco2()
+
+# (b) Statistically-calibrated version of (a): corrects occupations where the realized-vs-D&N gap
+# is large AND well-powered enough that it can't be sampling noise (a cluster-robust one-sided
+# test against the gap_threshold, not a flat sample-size floor -- see calibrate_isco_exposure()'s
+# own documentation in wfh_exposure_cells.R for why). Still draws on 2022-23 realized data, which
+# sits inside the post-period, so this is a documented compromise, not a fully pre-treatment
+# measure -- report (c)/(d) alongside it so the paper shows whether conclusions depend on it.
+exposure_calibrated <- calibrate_isco_exposure(cleaned_df, exposure_external)
+message(sprintf(
+  "  calibration swapped %d of %d occupations for realized Israeli values (gap > 0.5, statistically distinguishable from sampling noise at 95%% confidence):",
+  sum(exposure_calibrated$swap), nrow(exposure_calibrated)
+))
+print(exposure_calibrated %>% filter(swap) %>%
+        select(ISCO2, n, tele_ext, realized_wfh, gap, se_clustered, margin) %>%
+        as.data.frame(), digits = 3)
+
+# (c) Realized Israeli WFH by occupation, anchored per
+# docs/decisions/checkpoint6-wfh-anchor-year.md. Post-treatment by construction -- a robustness
+# check, not a substitute for (a)/(b). min_n = 200 drops occupations too thin to trust (without a
+# floor, a 4-observation cell can dominate the ranking -- see ISCO 63 above).
+exposure_realized <- build_wfh_exposure_index(cleaned_df, ref_year = 2021, min_n = 200)
+
+# (d) Pre-period (2017-2019) shift-share exposure by demographic cell (sex x age x education x
+# district), built from the calibrated occupation-level score (b). Unlike (a)-(c), this is defined
+# for every row of cleaned_df -- employed and non-employed alike -- so it's the only one of the
+# four that doesn't condition the third difference on Employed, the regression's own outcome. This
+# is the primary exposure measure for the causal DDD.
+exposure_cells <- build_exposure_cells(
+  cleaned_df,
+  exposure_calibrated %>% select(ISCO2, tele_ext = wfh_exposure_calibrated)
+)
+
+# ── 9a. Primary DDD: cell-based exposure, defined for the full sample ─────────
+# Two specs, reported side by side. WFH_Exposure is built from (GilNK, TeudaGvoha, MachozMegurim)
+# -- the same three variables DEFAULT_CONTROLS already includes additively -- so Spec 1's
+# WFH_Exposure carries substantial overlap with its own controls (74.5% of its variance is
+# explained by GilNK+TeudaGvoha+MachozMegurim alone; design-matrix condition number 267.8).
+# Spec 2 is the standard fix for a shift-share regressor like this: fully interacted cell fixed
+# effects absorb WFH_Exposure's own cross-cell level entirely (its bare main effect becomes exactly
+# collinear with the FE and fixest drops it automatically), so identification comes only from
+# Mother/Post's within-cell variation against the (cell-constant) exposure value -- the
+# Mother:WFH_Exposure / Post:WFH_Exposure / Mother:Post:WFH_Exposure interactions remain identified
+# either way, since Mother and Post vary within a cell even though WFH_Exposure itself doesn't.
+message("Running primary DDD (cell-based exposure, calibrated, full sample)...")
+ddd_df <- cleaned_df %>%
+  left_join(exposure_cells, by = c("Min", "GilNK", "TeudaGvoha", "MachozMegurim"))
+
+cell_fe_vars    <- c("GilNK", "TeudaGvoha", "MachozMegurim")  # matches build_exposure_cells()'s
+                                                               # cell_vars, minus the constant Min
+other_controls  <- setdiff(DEFAULT_CONTROLS, cell_fe_vars)
+
+ddd_primary_additive <- feols(
+  as.formula(paste("Employed ~ Mother * Post * WFH_Exposure +",
+                    paste(DEFAULT_CONTROLS, collapse = " + "))),
+  data = ddd_df, cluster = ~IDPUF
+)
+ddd_primary_fe <- feols(
+  as.formula(paste("Employed ~ Mother * Post * WFH_Exposure +",
+                    paste(other_controls, collapse = " + "),
+                    "|", paste(cell_fe_vars, collapse = "^"))),
+  data = ddd_df, cluster = ~IDPUF
+)
+print(etable(
+  ddd_primary_additive, ddd_primary_fe,
+  headers = c("Spec 1: additive controls", "Spec 2: interacted cell FE"), digits = 4
+))
+
+# ── 9b-9d. Robustness: occupation-level DDD + mechanism regression ────────────
+message("Running robustness DDD (calibrated occupation-level index)...")
+ddd_calibrated <- run_ddd_regression(
+  cleaned_df,
+  exposure_calibrated %>% select(occupation_code = ISCO2, wfh_exposure = wfh_exposure_calibrated)
+)
+
+message("Running robustness DDD (raw external Dingel & Neiman index)...")
+ddd_external <- run_ddd_regression(
+  cleaned_df,
+  exposure_external %>% select(occupation_code = ISCO2, wfh_exposure = tele_ext)
+)
+
+message("Running robustness DDD (realized Israeli index, 2021 anchor)...")
+ddd_realized <- run_ddd_regression(cleaned_df, exposure_realized)

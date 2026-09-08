@@ -37,8 +37,14 @@ run_diagnostics <- function(cleaned_df) {
   )
   pretrend_table <- etable(reg_pretrend, digits = 4)
   print(pretrend_table)
+  # Draws to whatever graphics device is already active -- deliberately no dev.new()/dev.off()
+  # here. dev.new() unconditionally opens a NEW top-level device regardless of context, which is
+  # what caused every headless `Rscript main.R` run to leak an auto-numbered Rplots*.pdf into the
+  # repo root (R falls back to a default pdf() device when no interactive one is available, and
+  # nothing ever closed it). Device management belongs to the caller, matching how the test suite
+  # already handles this (see helper-setup.R's with_null_device()) -- main.R wraps this call in an
+  # explicit device targeting outputs/; tests wrap it in a null device.
   tryCatch({
-    dev.new()
     iplot(reg_pretrend, main = "Event-study: Mother x Year (ref = 2019)")
   }, error = function(e) {
     message("iplot failed: ", e$message)
