@@ -119,3 +119,114 @@ test_that("validate_cleaned_df does not warn on WFH at a real-data-typical ~64% 
   df$WFH[1:64] <- NA
   expect_no_warning(validate_cleaned_df(df))
 })
+
+# ── check_idpuf_panel_structure ──────────────────────────────────────────────
+
+test_that("check_idpuf_panel_structure counts distinct IDPUF and reports 0 repetition when every IDPUF is unique", {
+  df <- tibble::tibble(
+    IDPUF      = 1:10,
+    ShnatSeker = rep(c(2019, 2022), length.out = 10),
+    Post       = rep(c(0, 1), length.out = 10)
+  )
+  out <- suppressMessages(check_idpuf_panel_structure(df))
+
+  expect_equal(out$n_idpuf, 10)
+  expect_equal(out$multi_year_n, 0)
+  expect_equal(out$cross_period_n, 0)
+})
+
+test_that("check_idpuf_panel_structure detects an IDPUF repeating within one year (same ShnatSeker, same Post)", {
+  df <- tibble::tibble(
+    IDPUF      = c(1, 1, 2, 3),
+    ShnatSeker = c(2019, 2019, 2019, 2022),
+    Post       = c(0, 0, 0, 1)
+  )
+  out <- suppressMessages(check_idpuf_panel_structure(df))
+
+  expect_equal(out$n_idpuf, 3)
+  expect_equal(out$multi_year_n, 0)    # IDPUF 1 repeats, but within the same ShnatSeker
+  expect_equal(out$cross_period_n, 0)  # and within the same Post value
+})
+
+test_that("check_idpuf_panel_structure detects an IDPUF spanning both Post==0 and Post==1", {
+  df <- tibble::tibble(
+    IDPUF      = c(1, 1, 2, 3),
+    ShnatSeker = c(2019, 2022, 2019, 2022),
+    Post       = c(0, 1, 0, 1)
+  )
+  out <- suppressMessages(check_idpuf_panel_structure(df))
+
+  expect_equal(out$n_idpuf, 3)
+  expect_equal(out$multi_year_n, 1)    # IDPUF 1: 2019 and 2022
+  expect_equal(out$cross_period_n, 1)  # IDPUF 1: Post 0 and Post 1
+  expect_true(1 %in% out$idpuf_periods$IDPUF[out$idpuf_periods$n_periods > 1])
+})
+
+test_that("check_idpuf_panel_structure emits a message summarizing the counts", {
+  df <- tibble::tibble(IDPUF = c(1, 1, 2), ShnatSeker = c(2019, 2022, 2019), Post = c(0, 1, 0))
+  expect_message(check_idpuf_panel_structure(df), "distinct IDPUF")
+})
+
+# ── check_wfh_refweek_avadbeshavua ───────────────────────────────────────────
+
+test_that("check_wfh_refweek_avadbeshavua degrades gracefully when AvadBeshavua is absent", {
+  df <- tibble::tibble(Post = 1, Employed = 1L, AvadMeHaBayit = NA_real_)
+  out <- suppressMessages(check_wfh_refweek_avadbeshavua(df))
+  expect_false(out$available)
+})
+
+test_that("check_wfh_refweek_avadbeshavua reports n = 0 when no blank-AvadMeHaBayit rows exist in Post==1", {
+  df <- tibble::tibble(
+    Post = c(1, 1), Employed = c(1L, 1L),
+    AvadMeHaBayit = c(1, 2),      # both answered -- neither is blank
+    AvadBeshavua  = c(1, 0)
+  )
+  out <- suppressMessages(check_wfh_refweek_avadbeshavua(df))
+  expect_true(out$available)
+  expect_equal(out$n, 0)
+})
+
+test_that("check_wfh_refweek_avadbeshavua only considers Post==1, Employed==1, blank-AvadMeHaBayit rows", {
+  df <- tibble::tibble(
+    Post          = c(0, 1, 1, 1),
+    Employed      = c(1L, 0L, 1L, 1L),
+    AvadMeHaBayit = c(NA_real_, NA_real_, 2, NA_real_),  # row1: Post==0 (excluded); row2: not
+                                                           # employed (excluded); row3: not blank
+                                                           # (excluded); row4: qualifies
+    AvadBeshavua  = c(0, 0, 1, 0)
+  )
+  out <- suppressMessages(check_wfh_refweek_avadbeshavua(df))
+  expect_equal(out$n, 1)
+  expect_equal(out$consistent, 1)    # row4: AvadBeshavua == 0 (!= 1) -- consistent
+  expect_equal(out$inconsistent, 0)
+})
+
+test_that("check_wfh_refweek_avadbeshavua correctly tallies consistent, inconsistent, and indeterminate rows", {
+  df <- tibble::tibble(
+    Post          = rep(1, 5),
+    Employed      = rep(1L, 5),
+    AvadMeHaBayit = rep(NA_real_, 5),
+    AvadBeshavua  = c(0, 2, 1, 1, NA)  # 2 consistent (!=1), 2 inconsistent (==1), 1 indeterminate (NA)
+  )
+  out <- suppressMessages(check_wfh_refweek_avadbeshavua(df))
+
+  expect_equal(out$n, 5)
+  expect_equal(out$consistent, 2)
+  expect_equal(out$inconsistent, 2)
+  expect_equal(out$indeterminate, 1)
+})
+
+test_that("check_wfh_refweek_avadbeshavua warns when any inconsistent row is found, and not otherwise", {
+  df_inconsistent <- tibble::tibble(
+    Post = 1, Employed = 1L, AvadMeHaBayit = NA_real_, AvadBeshavua = 1
+  )
+  expect_warning(
+    suppressMessages(check_wfh_refweek_avadbeshavua(df_inconsistent)),
+    "contradict"
+  )
+
+  df_consistent <- tibble::tibble(
+    Post = 1, Employed = 1L, AvadMeHaBayit = NA_real_, AvadBeshavua = 0
+  )
+  expect_no_warning(suppressMessages(check_wfh_refweek_avadbeshavua(df_consistent)))
+})

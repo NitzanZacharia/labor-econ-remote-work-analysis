@@ -5,7 +5,7 @@
 # conditional on being employed, so this is estimated on the Employed == 1 subsample.
 library(tidyverse)
 library(fixest)
-source("data_processing.R")
+source(file.path("scripts", "data_processing.R"))
 
 run_intensive_margin_reg <- function(cleaned_df, controls = DEFAULT_CONTROLS) {
 

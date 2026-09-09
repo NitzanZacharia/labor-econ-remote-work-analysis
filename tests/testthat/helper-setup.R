@@ -18,28 +18,35 @@ find_project_root <- function(start = getwd()) {
 
 project_root <- find_project_root()
 
-# chdir = TRUE: basic_regression.R and basic_reg_compared_data.R each contain their own
-# source("data_processing.R") with a path relative to the project root, not to wherever testthat
-# happens to set the working directory. chdir=TRUE makes `source()` temporarily cd into each
-# file's own directory (the project root) while sourcing it, so those internal relative-path
-# source() calls resolve correctly regardless of the caller's working directory.
-source(file.path(project_root, "data_processing.R"), chdir = TRUE)
-source(file.path(project_root, "comparative_statistics.R"), chdir = TRUE)
-source(file.path(project_root, "basic_regression.R"), chdir = TRUE)
-source(file.path(project_root, "basic_reg_compared_data.R"), chdir = TRUE)
-source(file.path(project_root, "intensive_margin_regression.R"), chdir = TRUE)
-source(file.path(project_root, "gender_placebo.R"), chdir = TRUE)
-source(file.path(project_root, "wfh_exposure_index.R"), chdir = TRUE)
-source(file.path(project_root, "wfh_exposure_cells.R"), chdir = TRUE)
-source(file.path(project_root, "ddd_regression.R"), chdir = TRUE)
-source(file.path(project_root, "export_results.R"), chdir = TRUE)
-source(file.path(project_root, "Diagnostics.R"), chdir = TRUE)
-source(file.path(project_root, "employment_by_child_age.R"), chdir = TRUE)
-source(file.path(project_root, "validation.R"), chdir = TRUE)
-source(file.path(project_root, "balance_test.R"), chdir = TRUE)
-source(file.path(project_root, "pretrend_wald_test.R"), chdir = TRUE)
-source(file.path(project_root, "age_balance_robustness.R"), chdir = TRUE)
-source(file.path(project_root, "phase2_robustness.R"), chdir = TRUE)
+# The 17 function-bearing files live in scripts/ and each other's internal source() calls (e.g.
+# data_processing.R referenced from basic_regression.R) use root-relative paths like
+# file.path("scripts", "data_processing.R") -- resolved against the current working directory, not
+# against the sourced file's own location. So instead of chdir=TRUE per file (which would cd into
+# scripts/ and break those internal file.path("scripts", ...) calls by doubling the prefix), pin the
+# working directory to project_root once for the whole block and restore it explicitly afterward.
+# (Not on.exit(): at this top-level script scope there's no enclosing function frame to attach a
+# reliable exit handler to, so an explicit setwd() back is used instead.)
+old_wd <- setwd(project_root)
+
+source(file.path("scripts", "data_processing.R"))
+source(file.path("scripts", "comparative_statistics.R"))
+source(file.path("scripts", "basic_regression.R"))
+source(file.path("scripts", "basic_reg_compared_data.R"))
+source(file.path("scripts", "intensive_margin_regression.R"))
+source(file.path("scripts", "intensive_margin_lee_bounds.R"))
+source(file.path("scripts", "gender_placebo.R"))
+source(file.path("scripts", "wfh_exposure_index.R"))
+source(file.path("scripts", "wfh_exposure_cells.R"))
+source(file.path("scripts", "isco_masking_diagnostics.R"))
+source(file.path("scripts", "ddd_collinearity_diagnostics.R"))
+source(file.path("scripts", "israeli_market_mismatch.R"))
+source(file.path("scripts", "ddd_regression.R"))
+source(file.path("scripts", "export_results.R"))
+source(file.path("scripts", "Diagnostics.R"))
+source(file.path("scripts", "employment_by_child_age.R"))
+source(file.path("scripts", "validation.R"))
+
+setwd(old_wd)
 
 fixtures_dir <- file.path(project_root, "tests", "testthat", "fixtures")
 

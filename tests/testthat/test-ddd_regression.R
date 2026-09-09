@@ -44,7 +44,7 @@ test_that("run_ddd_regression returns the documented structure and both models f
   out <- capture.output(res <- suppressWarnings(run_ddd_regression(synth$panel, synth$exposure)))
 
   expect_type(res, "list")
-  expect_true(all(c("table", "models", "mechanism_data") %in% names(res)))
+  expect_true(all(c("table", "models", "mechanism_data", "dropped_occupations") %in% names(res)))
   expect_s3_class(res$models$ddd, "fixest")
   expect_s3_class(res$models$mechanism, "lm")
 })
@@ -94,4 +94,22 @@ test_that("run_ddd_regression drops (and reports) an occupation where Mother:Pos
   )
   expect_equal(nrow(res$mechanism_data), 3)
   expect_false(9999 %in% res$mechanism_data$occupation_code)
+
+  # Dropped-vs-retained exposure diagnostic: occupation 9999 (dropped) has wfh_exposure = 0.9;
+  # the 3 retained occupations have wfh_exposure = 0.0, 0.5, 1.0 (mean 0.5) -- both exactly
+  # hand-computable from make_synth()'s fixed exposure values.
+  expect_equal(res$dropped_occupations$n_dropped, 1)
+  expect_true(9999 %in% res$dropped_occupations$data$occupation_code)
+  expect_equal(res$dropped_occupations$mean_exposure_dropped, 0.9, tolerance = 1e-8)
+  expect_equal(res$dropped_occupations$mean_exposure_retained, 0.5, tolerance = 1e-8)
+})
+
+test_that("dropped_occupations reports n_dropped == 0 and NA mean when nothing is dropped", {
+  synth <- make_synth()
+  out <- capture.output(res <- suppressWarnings(run_ddd_regression(synth$panel, synth$exposure)))
+
+  expect_equal(res$dropped_occupations$n_dropped, 0)
+  expect_true(is.na(res$dropped_occupations$mean_exposure_dropped))
+  expect_equal(res$dropped_occupations$mean_exposure_retained, 0.5, tolerance = 1e-8)
+  expect_equal(nrow(res$dropped_occupations$data), 0)
 })

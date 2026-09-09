@@ -17,7 +17,7 @@
 #     the regression -- prefer a frame that excludes them, or at minimum covers all workers.
 
 library(tidyverse)
-source("data_processing.R")
+source(file.path("scripts", "data_processing.R"))
 
 build_wfh_exposure_index <- function(cleaned_df, isco_col = "MishlachYad_ISCO_08_2",
                                      wfh_col = "WFH", ref_year = 2021,

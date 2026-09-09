@@ -31,7 +31,9 @@ $$Y_{it} = \beta_0 + \beta_1 \cdot \text{Mother}_i + \beta_2 \cdot \text{Post}_t
 The baseline employment regression is estimated on the full pooled sample and separately for Jewish and Arab women (`Leom == 1` / `Leom == 2`), to check whether the effect differs by population group.
 
 Beyond the baseline, the project implements a fuller empirical strategy, tracked checkpoint-by-checkpoint in [`docs/ROADMAP.md`](docs/ROADMAP.md):
-- an **intensive-margin** regression on usual weekly work hours (conditional on employment),
+- an **intensive-margin** regression on usual weekly work hours (conditional on employment), plus
+  a Lee (2009) trimming-bounds correction (`intensive_margin_lee_bounds.R`) for the selection risk
+  that conditioning on employment introduces (see `docs/decisions/intensive-margin-lee-bounds.md`),
 - a **gender placebo** test (fathers vs. childless men) to check the effect is motherhood-specific rather than a general parenthood/macro shift — an insignificant β₃ here supports the motherhood-specific reading,
 - an occupation-level **WFH-exposure index** and a **triple-differences (DDD) mechanism regression** (`Employed ~ Mother×Post×WFH_Exposure`) testing whether the narrowing penalty is actually driven by an occupation's remote-work exposure, cross-referenced against literature anchors (Bloom; Cohen & Manor 2024),
 - a robustness check comparing the full sample against `Muasak`-observed-only rows,
@@ -46,7 +48,7 @@ Two methodological gaps between the original research plan and the actual CBS ex
 - **Source**: Israeli CBS Labor Force Survey microdata. Raw files are yearly CSVs with Hebrew-transliterated variable names (e.g. `Muasak` = employed, `AvodaMeHaBayit` = works from home, `Leom` = population group).
 - **Not included in this repo**: raw CSVs are gitignored and must be supplied locally. Edit `folder_path` at the top of `main.R` to point at your local data folder.
 - **Sample**: women aged 25–59 by default, survey years 2017–2019 and 2021–2023 (2020 excluded — no raw extract exists for that year). `load_and_clean_data(folder_path, sex_filter = "men")` builds the analogous male subsample used by the gender placebo test.
-- **Caching**: the first run cleans the raw CSVs and saves the result as `cleaned_df.rds` in the data folder; subsequent runs load that cache instead of re-cleaning. Delete/rename the `.rds` file to force a rebuild after changing `data_processing.R`.
+- **Caching**: the first run cleans the raw CSVs and saves the result as `cleaned_df.rds` in the data folder, alongside a small `cleaned_df.rds.meta.rds` sidecar recording a hash of `data_processing.R`. Subsequent runs reuse the cache automatically, but only while that hash still matches — if `data_processing.R` has changed since the cache was built, `main.R` detects the mismatch and rebuilds automatically, so no manual delete step is needed.
 - **Schema-drift guard**: before a fresh (non-cached) load, `check_schema_drift()` verifies that a handful of name-bounded column ranges — used by positional `select(-(a:b))` drops in `data_processing.R` — occupy the same columns across every year's CSV, so a future CBS format change fails loudly instead of silently dropping the wrong data.
 - **Validation guard**: every load (cached or fresh) is checked by `validate_cleaned_df()`, which hard-fails (`stop()`) on impossible states (wrong sex code, out-of-range age group, a stray 2020 row, NAs in `Employed`/`Mother`/`Post`, zero rows) and warns on soft thresholds (a regression control with >5% NA, etc.).
 
@@ -66,20 +68,17 @@ source("main.R")
 
 or from a shell: `Rscript main.R`.
 
-This runs the full default pipeline — load/validate data, comparative stats, the three baseline regressions (pooled, Jewish, Arab), the intensive-margin regression, child-age descriptives, and diagnostics — then writes every result to `outputs/` (see below). Three pieces of the empirical strategy are implemented but **not wired into this default run** and must be invoked manually (each sources its own dependencies):
+This runs the full default pipeline — load/validate data, comparative stats, the three baseline regressions (pooled, Jewish, Arab), the intensive-margin regression plus its Lee (2009) selection-bounds correction, child-age descriptives, diagnostics, and the full WFH-exposure/DDD analysis (four exposure measures, an ISCO-masking sensitivity check, the primary cell-based DDD with a runtime collinearity diagnostic, and three occupation-level robustness DDDs) — then writes every result to `outputs/` (see below). Two pieces of the empirical strategy are deliberately **not** wired into this default run and must be invoked manually:
 
 ```r
 # Robustness check: full sample vs. Muasak-observed-only
 source("main.R"); basic_reg_comp(cleaned_df)
 
 # Gender placebo test (loads and validates a separate male subsample)
-source("gender_placebo.R"); run_gender_placebo(folder_path)
-
-# WFH-exposure index + DDD mechanism regression
-source("wfh_exposure_index.R"); source("ddd_regression.R")
-idx <- build_wfh_exposure_index(cleaned_df, ref_year = 2021)
-ddd <- run_ddd_regression(cleaned_df, idx)
+source(file.path("scripts", "gender_placebo.R")); run_gender_placebo(folder_path)
 ```
+
+A third, fully separate script, `run_mismatch.R` (`Rscript run_mismatch.R`), runs a descriptive-only mismatch exhibit against a cached `cleaned_df.rds` — it requires `israeli_cbs_wfh_2digit.csv` at the repo root, which (like the raw CBS CSVs) is not included in this repo.
 
 ### Tests
 
@@ -91,21 +90,27 @@ Runs the `testthat` suite in `tests/testthat/` (data processing, validation, sch
 
 ## Project structure
 
+`main.R`, `run_tests.R`, and `run_mismatch.R` are top-level entry-point scripts and stay at the repo root; every function-bearing file lives under `scripts/`.
+
 | File | Function | Purpose |
 |---|---|---|
-| `main.R` | — | Entry point. Sources all modules, loads/validates/cleans data (with caching and schema-drift checking), runs comparative stats, the baseline regressions, the intensive-margin regression, child-age descriptives, and diagnostics, then exports every result to `outputs/`. |
-| `data_processing.R` | `load_and_clean_data()` | Loads raw CSVs, filters to the analysis sample, and builds every derived variable (see below). Also defines `DEFAULT_CONTROLS`, the single source of truth for regression controls. |
-| `validation.R` | `validate_cleaned_df()`, `check_schema_drift()` | Hard/soft-fail data-quality guards on the cleaned data, and a header-only guard against CBS column-order drift breaking the positional column drops. |
-| `comparative_statistics.R` | `run_comparative_stats()` | Missingness audit, employment-variable audit (`Muasak` vs. `Employed` vs. work hours), employment rates by mother status, and a work-mobility-over-time trend plot. |
-| `basic_regression.R` | `basic_reg()` | Primary DiD regression: `Employed ~ Mother + Post + Mother:Post + controls`, clustered by `IDPUF`. |
-| `basic_reg_compared_data.R` | `basic_reg_comp()` | Robustness check comparing the full sample against `Muasak`-observed-only rows. Defined but **not called by default** from `main.R` — run manually if needed. |
-| `intensive_margin_regression.R` | `run_intensive_margin_reg()` | Intensive-margin counterpart to `basic_reg()`: `WorkHoursCont ~ Mother + Post + Mother:Post + controls`, estimated on `Employed == 1` only. |
-| `gender_placebo.R` | `run_gender_placebo()` | Loads/validates the male subsample and reruns `basic_reg()` on it (fathers vs. childless men), as a placebo for the motherhood-specific interpretation. Sourced by `main.R` but **not called by default**. |
-| `wfh_exposure_index.R` | `build_wfh_exposure_index()` | Occupation-level (ISCO-08) WFH-exposure index, anchored to 2021 (see `docs/decisions/checkpoint6-wfh-anchor-year.md`). Not sourced by `main.R`; run manually. |
-| `ddd_regression.R` | `run_ddd_regression()` | Triple-differences mechanism test: joins the exposure index onto the sample and estimates `Employed ~ Mother*Post*WFH_Exposure + controls`, plus a second-stage regression of per-occupation `Mother:Post` estimates on exposure. Depends on `wfh_exposure_index.R`; not sourced by `main.R`. |
-| `employment_by_child_age.R` | `employment_by_child_age()` | Employment rates and a controlled regression by youngest-child age bin, with raw/adjusted-rate plots. |
-| `Diagnostics.R` | `run_diagnostics()` | 2×2 DiD table, event-study pre-trend plot, and missing-value audits for the regression variables. |
-| `export_results.R` | `export_all_results()` | Walks the heterogeneous result lists returned by every analysis function and writes each data frame to CSV and each `ggplot` to PNG under `outputs/`. |
+| `main.R` | — | Entry point. Sources all modules from `scripts/`, loads/validates/cleans data (with caching and schema-drift checking), runs comparative stats, the baseline regressions, the intensive-margin regression, child-age descriptives, and diagnostics, then exports every result to `outputs/`. |
+| `scripts/data_processing.R` | `load_and_clean_data()` | Loads raw CSVs, filters to the analysis sample, and builds every derived variable (see below). Also defines `DEFAULT_CONTROLS`, the single source of truth for regression controls. |
+| `scripts/validation.R` | `validate_cleaned_df()`, `check_schema_drift()`, `check_idpuf_panel_structure()`, `check_wfh_refweek_avadbeshavua()` | Hard/soft-fail data-quality guards on the cleaned data; a header-only guard against CBS column-order drift breaking the positional column drops; a reporting-only check on how much `IDPUF` repeats across years/the Post divide; and a verification of the `WFH_RefWeek`/`AvadBeshavua` raw-data assumption stated in `data_processing.R`'s comments. |
+| `scripts/comparative_statistics.R` | `run_comparative_stats()` | Missingness audit, employment-variable audit (`Muasak` vs. `Employed` vs. work hours), employment rates by mother status, and a work-mobility-over-time trend plot. |
+| `scripts/basic_regression.R` | `basic_reg()` | Primary DiD regression: `Employed ~ Mother + Post + Mother:Post + controls`, clustered by `IDPUF`. |
+| `scripts/basic_reg_compared_data.R` | `basic_reg_comp()` | Robustness check comparing the full sample against `Muasak`-observed-only rows. Defined but **not called by default** from `main.R` — run manually if needed. |
+| `scripts/intensive_margin_regression.R` | `run_intensive_margin_reg()` | Intensive-margin counterpart to `basic_reg()`: `WorkHoursCont ~ Mother + Post + Mother:Post + controls`, estimated on `Employed == 1` only. |
+| `scripts/intensive_margin_lee_bounds.R` | `run_intensive_margin_lee_bounds()` | Lee (2009) trimming-bounds correction for the above: since `Employed` is itself a DiD outcome, conditioning the hours regression on `Employed == 1` risks selection bias if WFH differentially pulls marginal mothers into work post-2021. Reports a `[lower, upper]` bound on `Mother:Post` alongside the untrimmed point estimate — see `docs/decisions/intensive-margin-lee-bounds.md`. |
+| `scripts/gender_placebo.R` | `run_gender_placebo()` | Loads/validates the male subsample and reruns `basic_reg()` on it (fathers vs. childless men), as a placebo for the motherhood-specific interpretation. Sourced by `main.R` but **not called by default**. |
+| `scripts/wfh_exposure_index.R` | `build_wfh_exposure_index()` | Occupation-level (ISCO-08) WFH-exposure index, anchored to 2021 (see `docs/decisions/checkpoint6-wfh-anchor-year.md`). Sourced and called by default from `main.R` (one of four exposure measures — see `docs/decisions/calibrated-exposure-and-cell-ddd.md`). |
+| `scripts/isco_masking_diagnostics.R` | `check_isco_masking_sensitivity()` | Sensitivity check for CBS's ISCO-08 disclosure masking: since `wfh_exposure_index.R`/`wfh_exposure_cells.R` both drop masked-occupation rows, this compares realized WFH between masked and unmasked rows within the same coarse (`ISCO1`) occupation family, as a proxy for whether that dropped subsample is likely biasing the exposure index. |
+| `scripts/ddd_collinearity_diagnostics.R` | `check_spec1_collinearity()` | Runtime collinearity diagnostic for the primary DDD's Spec 1 (additive controls): recomputes `WFH_Exposure`'s own R²/VIF against the cell-defining controls and the Spec 1 design matrix's condition number from the live data, so these figures can't silently go stale as a hardcoded comment would. Base R only (`lm()`, `kappa()`) — deliberately avoids adding `car` as a dependency. |
+| `scripts/ddd_regression.R` | `run_ddd_regression()` | Triple-differences mechanism test: joins the exposure index onto the sample and estimates `Employed ~ Mother*Post*WFH_Exposure + controls`, plus a precision-weighted second-stage regression of per-occupation `Mother:Post` estimates on exposure (with a dropped-vs-retained-occupation exposure diagnostic). Sourced and called by default from `main.R`, three times — once each for the calibrated, external, and realized exposure measures (robustness checks; the primary DDD is the cell-based regression built directly in `main.R` §8a). |
+| `scripts/israeli_market_mismatch.R` | `check_market_mismatch()` | Descriptive-only exhibit comparing theoretical (Dingel & Neiman) vs. realized (2022-23) WFH by occupation — a thin wrapper around `calibrate_isco_exposure()`. Takes an `exposure_path` parameter (default: the real, locally-supplied `israeli_cbs_wfh_2digit.csv`) so it's testable without that file. Invoked via `run_mismatch.R`, not sourced by `main.R`. |
+| `scripts/employment_by_child_age.R` | `employment_by_child_age()` | Employment rates and a controlled regression by youngest-child age bin, with raw/adjusted-rate plots. |
+| `scripts/Diagnostics.R` | `run_diagnostics()` | 2×2 DiD table, event-study pre-trend plot, and missing-value audits for the regression variables. |
+| `scripts/export_results.R` | `export_all_results()` | Walks the heterogeneous result lists returned by every analysis function and writes each data frame to CSV and each `ggplot` to PNG under `outputs/`. |
 | `run_tests.R` | — | `testthat` runner (`Rscript run_tests.R`); exits non-zero on failure. |
 
 ## Key variables
@@ -122,15 +127,15 @@ Runs the `testthat` suite in `tests/testthat/` (data processing, validation, sch
 | `WorksOutsideLocality` | `1` if she commutes outside her locality of residence for work, derived from `DargatNayadut`; used in comparative statistics only, not as a regression control. |
 | `MishlachYad_ISCO_08_2` | 2-digit ISCO-08 occupation code; the join key for the WFH-exposure index and DDD regression. |
 
-`DEFAULT_CONTROLS` (defined once in `data_processing.R`, reused by `basic_regression.R`, `basic_reg_compared_data.R`, `intensive_margin_regression.R`, `employment_by_child_age.R`, `Diagnostics.R`, and `ddd_regression.R`): `MatzavMishpachti` (marital status), `Dat` (religiosity), `GilNK` (age group), `MachozMegurim` (district of residence), `TeudaGvoha` (education) — all treated as categorical factors.
+`DEFAULT_CONTROLS` (defined once in `scripts/data_processing.R`, reused by `basic_regression.R`, `basic_reg_compared_data.R`, `intensive_margin_regression.R`, `employment_by_child_age.R`, `Diagnostics.R`, and `ddd_regression.R`): `MatzavMishpachti` (marital status), `Dat` (religiosity), `GilNK` (age group), `MachozMegurim` (district of residence), `TeudaGvoha` (education) — all treated as categorical factors.
 
 ## Outputs
 
-`Rscript main.R` writes one file per result table/plot to `outputs/` (CSV for tables, PNG for plots) via `export_all_results()`. `outputs/` is **gitignored by default** — several breakdowns (e.g. the Arab-women-only stratified regression) can produce small cells from real CBS microdata, so nothing derived from it should be committed without a human explicitly reviewing it first for disclosure risk.
+`Rscript main.R` writes one file per result table/plot to `outputs/` (CSV for tables, PNG for plots) via `export_all_results()`. `outputs/` is **tracked in git**, not gitignored — but several breakdowns (e.g. the Arab-women-only stratified regression) can produce small cells from real CBS microdata, so nothing generated under it should be `git add`ed/committed without a human explicitly reviewing it first for disclosure risk (see `CLAUDE.md`). Tracking the directory removes the structural gitignore block, not that review requirement.
 
 ## Known limitations
 
-- CBS survey weight columns (`MishkalSofi`, `MishkalShnati`, etc.) exist in the raw data but are not applied anywhere — all reported rates and regression coefficients are unweighted convenience-sample statistics, not population-representative estimates.
+- **Survey weights are intentionally not applied in any regression.** CBS weight columns (`MishkalSofi`, `MishkalShnati`, etc.) exist in the raw data and are deliberately excluded from every regression in this repo (`basic_reg()`, the intensive-margin/DDD models, the pretrend model, etc.) — this is a scope decision, not an oversight, and should not be "fixed" without a separate discussion. Reported rates and regression coefficients are unweighted estimates on the analysis sample, not population-representative statistics. (The one exception is `build_exposure_cells()` in `wfh_exposure_cells.R`, which does weight by `MishkalSofi` when aggregating occupation exposure up to demographic cells — that weighting is internal to building the exposure regressor, not a survey-representativeness correction for the outcome regressions themselves.)
 - The WFH-exposure index and age controls both deviate from the research doc's literal specification, as documented decisions (see `docs/decisions/`), because the raw CBS extract lacks a 2020 file and any continuous age/birth-year variable.
 
 ## Documentation map

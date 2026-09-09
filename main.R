@@ -2,42 +2,65 @@
 
 # ── 1. Clear environment and load modules ─────────────────────────────────────
 rm(list = ls())
-source("data_processing.R")
-source("comparative_statistics.R")
-source("basic_regression.R")
-source("basic_reg_compared_data.R")
-source("Diagnostics.R")
-source("employment_by_child_age.R")
-source("validation.R")
-source("intensive_margin_regression.R")
-source("gender_placebo.R")
-source("export_results.R")
+source(file.path("scripts", "data_processing.R"))
+source(file.path("scripts", "comparative_statistics.R"))
+source(file.path("scripts", "basic_regression.R"))
+source(file.path("scripts", "basic_reg_compared_data.R"))
+source(file.path("scripts", "Diagnostics.R"))
+source(file.path("scripts", "employment_by_child_age.R"))
+source(file.path("scripts", "validation.R"))
+source(file.path("scripts", "intensive_margin_regression.R"))
+source(file.path("scripts", "intensive_margin_lee_bounds.R"))
+source(file.path("scripts", "gender_placebo.R"))
+source(file.path("scripts", "export_results.R"))
 
 # Load modules required for the WFH exposure index and DDD mechanism test
-source("wfh_exposure_index.R")
-source("wfh_exposure_cells.R")
-source("ddd_regression.R")
+source(file.path("scripts", "wfh_exposure_index.R"))
+source(file.path("scripts", "wfh_exposure_cells.R"))
+source(file.path("scripts", "isco_masking_diagnostics.R"))
+source(file.path("scripts", "ddd_collinearity_diagnostics.R"))
+source(file.path("scripts", "ddd_regression.R"))
 
 # ── 2. Configure paths ────────────────────────────────────────────────────────
 message("Edit folder paths if needed!")
-folder_path   <- "csvs"
+folder_path   <- "G:/My Drive/Uni/econ/csv_data"
 rds_file_path <- paste0(folder_path, "/cleaned_df.rds")
 
 # ── 3. Execute data pipeline (with caching) ───────────────────────────────────
-if (file.exists(rds_file_path)) {
-  message("Found saved RDS file — loading pre-cleaned data...")
+# Cache validity is tied to data_processing.R's content, not just to the RDS file's existence --
+# otherwise a stale cache built before a data_processing.R change (e.g. a corrected WFH coding
+# rule, or a new derived column) keeps getting silently reused with no error. The hash is stored
+# in a small sidecar file next to the cache.
+cache_meta_path       <- paste0(rds_file_path, ".meta.rds")
+data_processing_hash  <- unname(tools::md5sum(file.path("scripts", "data_processing.R")))
+
+cache_is_valid <- file.exists(rds_file_path) && file.exists(cache_meta_path) &&
+  identical(readRDS(cache_meta_path)$data_processing_hash, data_processing_hash)
+
+if (cache_is_valid) {
+  message("Found saved RDS file (data_processing.R unchanged) — loading pre-cleaned data...")
   cleaned_df <- readRDS(rds_file_path)
 } else {
+  if (file.exists(rds_file_path)) {
+    message("data_processing.R has changed since the cache was built — invalidating cache...")
+  }
   message("Checking raw CSV schema for column-order drift...")
   check_schema_drift(folder_path)
-  message("Saved RDS not found — loading and cleaning raw data...")
+  message("Saved RDS not found or stale — loading and cleaning raw data...")
   cleaned_df <- load_and_clean_data(folder_path)
   message("Saving cleaned data for future use...")
   saveRDS(cleaned_df, file = rds_file_path)
+  saveRDS(list(data_processing_hash = data_processing_hash), file = cache_meta_path)
 }
 
 message("Validating cleaned data...")
 validate_cleaned_df(cleaned_df)
+
+message("Checking IDPUF panel structure (cluster-SE unit vs. Mother/Post design)...")
+idpuf_panel_check <- check_idpuf_panel_structure(cleaned_df)
+
+message("Checking WFH_RefWeek's NA rationale against AvadBeshavua...")
+wfh_refweek_check <- check_wfh_refweek_avadbeshavua(cleaned_df)
 
 # ── 4. Comparative statistics ─────────────────────────────────────────────────
 message("Running comparative statistics...")
@@ -56,6 +79,9 @@ baseline_arab <- basic_reg(filter(cleaned_df, Leom == 2))
 message("Running intensive-margin (work hours) regression...")
 intensive_results <- run_intensive_margin_reg(cleaned_df)
 
+message("Running intensive-margin Lee (2009) trimming bounds (selection-on-employment correction)...")
+intensive_lee_bounds <- run_intensive_margin_lee_bounds(cleaned_df)
+
 # ── 6. Run descriptive stats ────────────────────────────────────────────────────────
 message("Running employment_by_child_age...")
 emp_res <- employment_by_child_age(cleaned_df)
@@ -68,25 +94,18 @@ pdf(file.path("outputs", "event_study_pretrend.pdf"))
 diagnostics_results <- run_diagnostics(cleaned_df)
 dev.off()
 
-# ── 8. Export results ─────────────────────────────────────────────────────────
-message("Exporting results to outputs/...")
-export_all_results(list(
-  comparative_stats       = comp_stats,
-  basic_reg               = baseline_results,
-  basic_reg_jewish        = baseline_jewish,
-  basic_reg_arab          = baseline_arab,
-  intensive_margin        = intensive_results,
-  employment_by_child_age = emp_res,
-  diagnostics             = diagnostics_results
-))
+# Results are exported once, at the very end of the script (── 9 ──), so that §8's WFH-exposure
+# measures and DDD regressions are captured in the same outputs/ artifact set as everything above
+# -- previously this export call ran here, before this section existed, so none of its results
+# ever reached disk (Checkpoint 9/10 gap).
 
-# ── 9. WFH-Exposure Measures & DDD Regression ─────────────────────────────────
+# ── 8. WFH-Exposure Measures & DDD Regression ─────────────────────────────────
 # Four separate measures, four separate purposes. They are NOT combined into one "best" index fed
 # to a single regression -- an earlier version of this section did that (swapping the theoretical
 # index for realized-2022-23 values above an arbitrary gap threshold, with no account of sampling
 # noise), which both contaminated the DDD's exposure regressor with post-treatment behavior and
 # let a 4-observation occupation cell (ISCO 63) swing the ranking. See
-# C:\Users\Inbal\.claude\plans\shimmying-bouncing-pelican.md for the full argument.
+# docs/decisions/calibrated-exposure-and-cell-ddd.md for the full argument.
 message("Building the WFH-exposure measures...")
 
 # (a) External, exogenous teleworkability (Dingel & Neiman via O*NET/SOC->ISCO crosswalk).
@@ -111,6 +130,14 @@ print(exposure_calibrated %>% filter(swap) %>%
         select(ISCO2, n, tele_ext, realized_wfh, gap, se_clustered, margin) %>%
         as.data.frame(), digits = 3)
 
+# Sensitivity check: exposure_calibrated (and exposure_realized/exposure_cells below) is built by
+# dropping every disclosure-masked-ISCO row via !is.na(ISCO2) -- masking concentrates in thin
+# occupation cells, so this checks whether masked rows' realized WFH looks different from unmasked
+# rows' within the same coarse (ISCO1) occupation family, as a proxy for whether that dropped
+# subsample is likely to be biasing the exposure index. See isco_masking_diagnostics.R.
+message("Checking ISCO disclosure-masking sensitivity (masked vs. unmasked realized WFH)...")
+isco_masking_check <- check_isco_masking_sensitivity(cleaned_df)
+
 # (c) Realized Israeli WFH by occupation, anchored per
 # docs/decisions/checkpoint6-wfh-anchor-year.md. Post-treatment by construction -- a robustness
 # check, not a substitute for (a)/(b). min_n = 200 drops occupations too thin to trust (without a
@@ -127,11 +154,13 @@ exposure_cells <- build_exposure_cells(
   exposure_calibrated %>% select(ISCO2, tele_ext = wfh_exposure_calibrated)
 )
 
-# ── 9a. Primary DDD: cell-based exposure, defined for the full sample ─────────
+# ── 8a. Primary DDD: cell-based exposure, defined for the full sample ─────────
 # Two specs, reported side by side. WFH_Exposure is built from (GilNK, TeudaGvoha, MachozMegurim)
 # -- the same three variables DEFAULT_CONTROLS already includes additively -- so Spec 1's
-# WFH_Exposure carries substantial overlap with its own controls (74.5% of its variance is
-# explained by GilNK+TeudaGvoha+MachozMegurim alone; design-matrix condition number 267.8).
+# WFH_Exposure carries substantial overlap with its own controls (at the time of writing: 74.5% of
+# its variance explained by GilNK+TeudaGvoha+MachozMegurim alone; design-matrix condition number
+# 267.8 -- see check_spec1_collinearity() below, which recomputes both from the live data on every
+# run rather than leaving them as a static claim that could go stale as the microdata changes).
 # Spec 2 is the standard fix for a shift-share regressor like this: fully interacted cell fixed
 # effects absorb WFH_Exposure's own cross-cell level entirely (its bare main effect becomes exactly
 # collinear with the FE and fixest drops it automatically), so identification comes only from
@@ -157,12 +186,16 @@ ddd_primary_fe <- feols(
                     "|", paste(cell_fe_vars, collapse = "^"))),
   data = ddd_df, cluster = ~IDPUF
 )
-print(etable(
+primary_ddd_table <- etable(
   ddd_primary_additive, ddd_primary_fe,
   headers = c("Spec 1: additive controls", "Spec 2: interacted cell FE"), digits = 4
-))
+)
+print(primary_ddd_table)
 
-# ── 9b-9d. Robustness: occupation-level DDD + mechanism regression ────────────
+message("Checking Spec 1's collinearity at runtime (see comment above)...")
+spec1_collinearity_check <- check_spec1_collinearity(ddd_df, cell_fe_vars, DEFAULT_CONTROLS)
+
+# ── 8b-8d. Robustness: occupation-level DDD + mechanism regression ────────────
 message("Running robustness DDD (calibrated occupation-level index)...")
 ddd_calibrated <- run_ddd_regression(
   cleaned_df,
@@ -177,3 +210,30 @@ ddd_external <- run_ddd_regression(
 
 message("Running robustness DDD (realized Israeli index, 2021 anchor)...")
 ddd_realized <- run_ddd_regression(cleaned_df, exposure_realized)
+
+# ── 9. Export results ─────────────────────────────────────────────────────────
+# idpuf_panel_check is deliberately NOT included here: its idpuf_years/idpuf_periods tables are
+# keyed by individual IDPUF, which is closer to raw identifiable microdata than the aggregate
+# tables everything else in this list produces -- per this project's disclosure-risk convention
+# (CLAUDE.md, Checkpoint 9), only its console-printed summary counts are surfaced, not a
+# persisted per-person roster.
+message("Exporting results to outputs/...")
+export_all_results(list(
+  comparative_stats = comp_stats,
+  basic_reg = baseline_results,
+  basic_reg_jewish = baseline_jewish,
+  basic_reg_arab = baseline_arab,
+  intensive_margin = intensive_results,
+  intensive_margin_lee_bounds = intensive_lee_bounds,
+  employment_by_child_age = emp_res,
+  diagnostics = diagnostics_results,
+  isco_masking_sensitivity = isco_masking_check,
+  wfh_exposure_external = exposure_external,
+  wfh_exposure_calibrated = exposure_calibrated,
+  wfh_exposure_realized = exposure_realized,
+  wfh_exposure_cells = exposure_cells,
+  ddd_primary = primary_ddd_table,
+  ddd_calibrated = ddd_calibrated,
+  ddd_external = ddd_external,
+  ddd_realized = ddd_realized
+))

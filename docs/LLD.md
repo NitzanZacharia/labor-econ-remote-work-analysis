@@ -1,16 +1,16 @@
 # Low-Level Design: Motherhood Penalty / WFH Analysis Pipeline
 
-Derived from [`docs/HLD.md`](HLD.md) and the actual current state of the repository. Every figure in this document (schema, types, NA rates) was pulled directly from the real cached `cleaned_df.rds` (372,741 rows × 81 columns, produced by the current `data_processing.R`), not reconstructed from reading code — see the Verification note at the end.
+Derived from [`docs/HLD.md`](HLD.md) and the actual current state of the repository. The original 81-column table below was pulled directly from a real cached `cleaned_df.rds` (372,741 rows × 81 columns) as it stood at the time — not reconstructed from reading code — see the Verification note at the end. `data_processing.R` has since grown 6 more derived columns (`WFH_RefWeek`, `WFH_Hours`, `WFH_Share`, `WFH_Arrangement`, `ISCO_masked`, `ISCO1`), documented in a follow-on subsection below the original table; those 6 were reconciled directly from the current code, **not** from a fresh live pull, so their exact final column position (as opposed to their existence, type, and derivation) is not independently re-verified the way rows 1-81 were. The dataset is currently **372,741 rows × 87 columns**.
 
 ## Data Schema
 
-`cleaned_df` (the output of `load_and_clean_data()`) is a flat tibble, 372,741 rows × 81 columns. Columns fall into three classes:
+`cleaned_df` (the output of `load_and_clean_data()`) is a flat tibble, currently 372,741 rows × 87 columns (81 as of the original live pull below, plus 6 documented in the follow-on subsection). Columns fall into three classes:
 
 - **Derived (new)** — created by `data_processing.R`, not present in the raw CBS extract.
 - **Type-transformed** — a raw CBS column, converted to `factor` or recoded/grouped in place (same column name, new representation).
 - **Raw passthrough** — an untouched raw CBS column (Hebrew-named, numeric or character), surviving the drop step unchanged.
 
-### Full column list (81 columns)
+### Full column list (original 81-column live pull)
 
 | # | Column | Type | Class |
 |---|---|---|---|
@@ -70,7 +70,7 @@ Derived from [`docs/HLD.md`](HLD.md) and the actual current state of the reposit
 | 54 | `AnafKalkali_ISIC_R4_1` | character | Raw passthrough |
 | 55 | `AnafKalkali_ISIC_R4_2` | character | Raw passthrough |
 | 56 | `MishlachYad_ISCO_08_1` | character | Raw passthrough |
-| 57 | `MishlachYad_ISCO_08_2` | numeric | Type-transformed (`as.numeric()` coerced; needed for a future WFH-exposure index) |
+| 57 | `MishlachYad_ISCO_08_2` | numeric | Type-transformed (`as.numeric()` coerced; join key for the WFH-exposure index and DDD regressions — see the follow-on subsection below for `ISCO_masked`/`ISCO1`, added alongside it since this pull) |
 | 58 | `MishlachYadBenZug` | character | Raw passthrough |
 | 59 | `MishlachYadNK` | character | Raw passthrough |
 | 60 | `NayadutYishuvAvodaMechushav` | numeric | Raw passthrough |
@@ -98,6 +98,21 @@ Derived from [`docs/HLD.md`](HLD.md) and the actual current state of the reposit
 
 **Schema-quality gap**: the ~65 raw-passthrough columns above have no explicit final-format contract — no renaming, no type normalization (numeric vs. character is whatever `read_csv()` guessed), no documented meaning beyond the original CBS codebook. Only the columns actually consumed downstream (§ below) have a defined contract. This is a real gap if the dataset is ever handed to someone without codebook access.
 
+### Columns added since the original 81-column pull
+
+Reconciled directly from the current `data_processing.R` (not a fresh live pull — see the note at the top of this document). All 6 are genuinely new columns (not present in the original pull), so they sit after column 81 in creation order; their exact final index is not independently re-verified.
+
+| Column | Type | Class | Derivation |
+|---|---|---|---|
+| `WFH_RefWeek` | numeric | Derived | Reference-week WFH behaviour, from `AvadMeHaBayit` (same 1/2/9→1/0/NA mapping as `WFH`). Created immediately after `WFH` in `data_processing.R`'s WFH block. |
+| `WFH_Hours` | numeric | Derived | Hours worked from home in the reference week, from `KamaShaot` (only defined when `WFH_RefWeek == 1`). |
+| `WFH_Share` | numeric | Derived | `WFH_Hours / ShaotAvodaLeMaase`, capped at 1. |
+| `WFH_Arrangement` | factor (3 levels) | Derived | Binned from `WFH_Share`: On-site / Hybrid / Fully remote. |
+| `ISCO_masked` | logical | Derived | `TRUE` where the raw `MishlachYad_ISCO_08_2` held a CBS disclosure mask (`XX`, `7X`, …) rather than a numeric code. Created in the ISCO block, immediately after column 57's type transform. |
+| `ISCO1` | numeric | Derived | 1-digit ISCO-08 major group, recovered from the first character of the raw code (survives partial masking, e.g. `7X` → `7`). |
+
+See the "Analysis-critical derived columns" table below for each column's exact NA-rate contract and derivation logic.
+
 ### Analysis-critical derived columns (exact contract)
 
 | Column | Type | Values / levels | NA rate | Derivation |
@@ -112,7 +127,7 @@ Derived from [`docs/HLD.md`](HLD.md) and the actual current state of the reposit
 | `WFH_Arrangement` | factor (3 levels) | `On-site` (91,480), `Hybrid` (15,685), `Fully remote` (9,655) | 68.659% | Binned from `WFH_Share`: `0` → On-site, `(0, 0.9)` → Hybrid, `>= 0.9` → Fully remote |
 | `ISCO_masked` | logical | `{TRUE, FALSE}` | **0.000%** | `TRUE` where the raw `MishlachYad_ISCO_08_2` held a CBS disclosure mask (`XX`, `7X`, …) rather than a code. 2.365% of the analysis sample; 7.5% of all employed in the raw 2021 file, since masking concentrates in thin occupation cells |
 | `ISCO1` | numeric | `[1, 9]` | 18.052% | 1-digit ISCO-08 major group, recovered from the first character of the raw code so partially-masked values (`7X` → `7`) survive. Non-`NA` for 231 employed 2021 rows that `MishlachYad_ISCO_08_2` loses entirely |
-| `WorkHoursCont` | numeric | `[0, 78.5]` | 0.001% (3 rows) | Bin-median lookup for `ShaotAvodaBederechKlalNK` codes 0–10; sample-median imputation for codes 11/12; `NA` for code 99 |
+| `WorkHoursCont` | numeric | `[0, 78.5]` | 0.001% (3 rows) | Bin-median lookup for `ShaotAvodaBederechKlalNK` codes 0–10; codes 11/12 imputed from the median of the matching bin range, computed separately within each `Post` period (not pooled across 2017–2023 — pooling would blend the pre/post hour distributions and dampen any real period-specific intensity shift); `NA` for code 99 |
 | `TeudaGvoha` | factor (6 levels) | `Below High School`, `High School (no matriculation)`, `Matriculation (Bagrut)`, `Post-secondary, non-academic`, `Academic Degree (BA/MA/PhD)`, `Other/No Certificate` | 2.135% | Collapsed from 11 raw codes; `NA` reserved for raw code 99 ("unknown") |
 | `BirthContinent` | factor (6 levels) | `Africa`, `Asia`, `Europe`, `Israel`, `North America`, `Other` | 0.218% | Collapsed from 16 raw `SemelEretzLeda` codes; `NA` reserved for raw code 16 (ambiguous "unknown"/"other" in CBS's own codebook) |
 | `WorksOutsideLocality` | integer | `{0, 1}` | 16.552% | From `DargatNayadut`: `1`→`0`, `2`–`7`→`1`, `0`/`8`/`NA`→`NA` |
@@ -121,7 +136,7 @@ Regression-control columns (`MatzavMishpachti`, `Dat`, `GilNK`, `MachozMegurim`,
 
 ## Validation & Thresholds
 
-### Hard-fail checks (pipeline should stop; none of these currently exist as code — see Implementation Roadmap)
+### Hard-fail checks (pipeline should stop; implemented in `validation.R`'s `validate_cleaned_df()`)
 
 | Check | Rule | Rationale |
 |---|---|---|
@@ -146,121 +161,172 @@ Regression-control columns (`MatzavMishpachti`, `Dat`, `GilNK`, `MachozMegurim`,
 3. **Structurally-conditional variables** (`WFH`) — `NA` encodes "question not applicable this year," not missingness. Must never be imputed or treated as `0`.
 4. **Mobility/commute variables** (`WorksOutsideLocality`) — `NA` covers both "didn't work" and "unknown," which are semantically different but not currently distinguished; flagged as a modeling simplification, not a defect.
 
-### Schema-drift check (operationalizes the HLD's flagged column-order risk)
+### Schema-drift check (implemented in `validation.R`'s `check_schema_drift()`)
 
-`data_processing.R` drops 7 column ranges positionally (`select(-(a:b))`), which depend on the raw CSV's column *order*, not names. A concrete check: assert, for each year's raw CSV independently, that the named boundary columns of every range (e.g. `RamatDat`, `BituachLeumi`, `Yeladim0_1Prat`, `Yeladim15_17Prat`, ...) occupy the same relative position they did in the 2019 file used to validate this pipeline. This doesn't exist as code today — see Implementation Roadmap.
+`data_processing.R` drops column ranges positionally (`select(-(a:b))`), which depend on the raw CSV's column *order*, not names — originally 7 ranges, now 5 (2 were converted to explicit `any_of()`-based name drops after `2017_Data.csv` turned out to lack all 4 of those boundary columns entirely, which made the positional check fail on a file that was never going to contain them in the first place). `check_schema_drift(folder_path)` asserts, for every year's raw CSV independently, that the named boundary columns of each of the 5 remaining ranges (`Yeladim0_1Prat`/`Yeladim15_17Prat`, `MisparHachlafa`/`YachasKirvaNK`, `MisparNefashotGilAvodaV2007`/`MisparPrat`, `ChipusAvodaSherutTaasuka`/`ChipusAvodaOfenAcher`, `RamatDat`/`BituachLeumi`) occupy the same relative column position across every file, throwing a clear error rather than silently dropping the wrong columns if a future CBS release reorders them. Called from `main.R` before every fresh (non-cached) `load_and_clean_data()` run.
 
 ## Core Function Signatures
 
-### Existing (verified against current source)
+### Existing (verified against current source; all previously-"Proposed" functions in this section have since been built)
 
 ```r
-load_and_clean_data(folder_path: character(1)) -> tibble  # 81 cols, see Data Schema
+# ── data_processing.R ──────────────────────────────────────────────────────
+load_and_clean_data(folder_path: character(1),
+                     sex_filter: character = c("women", "men")) -> tibble  # 87 cols, see Data Schema
+# sex_filter defaults to "women" (Min==2); "men" selects Min==1 (the Gender Placebo Test).
 # Side effects: reads every *.csv in folder_path; stop()s if folder_path doesn't exist.
 
+# ── validation.R ────────────────────────────────────────────────────────────
+validate_cleaned_df(cleaned_df: tibble, sex_filter: character = c("women", "men")) -> invisible(TRUE)
+# stop()s on hard-fail checks (see Validation & Thresholds); warning()s on soft-fail thresholds.
+
+check_schema_drift(folder_path: character(1)) -> invisible(TRUE)
+# stop()s if any of the 5 positional-range boundary columns has moved between yearly CSVs.
+
+check_idpuf_panel_structure(cleaned_df: tibble) ->
+  invisible(list(
+    n_idpuf = integer(1), multi_year_n = integer(1), cross_period_n = integer(1),
+    idpuf_years = tibble, idpuf_periods = tibble
+  ))
+# Reporting-only: how much IDPUF repeats across ShnatSeker years / the Post==0-vs-1 divide.
+
+check_wfh_refweek_avadbeshavua(cleaned_df: tibble) ->
+  invisible(list(available = logical(1), n = integer(1),
+                  consistent = integer(1), inconsistent = integer(1), indeterminate = integer(1)))
+# Verifies (doesn't assume) that WFH_RefWeek's blank-AvadMeHaBayit rows coincide with
+# AvadBeshavua != 1, among employed Post==1 rows. Degrades to available=FALSE if AvadBeshavua
+# isn't present in cleaned_df. warning()s if any row contradicts the claim.
+
+# ── comparative_statistics.R ────────────────────────────────────────────────
 run_comparative_stats(cleaned_df: tibble) ->
   invisible(list(
-    missing_pct      = tibble,   # variable, pct_missing
-    emp_by_mother    = tibble,   # Mother, emp_rate, n
-    mobility_by_year = tibble,   # ShnatSeker, Mother, pct_outside, n, MotherLabel
-    plots            = list(mobility = ggplot)
+    missing_pct = tibble, emp_by_mother = tibble, mobility_by_year = tibble,
+    plots = list(mobility = ggplot)
   ))
-# Side effects: message()/print()s every intermediate table; print()s one ggplot.
 
+# ── basic_regression.R / basic_reg_compared_data.R ──────────────────────────
 basic_reg(cleaned_data: tibble) ->
-  invisible(list(
-    table  = etable_df,
-    models = list(employed = fixest)   # Employed ~ Mother + Post + Mother:Post + controls, cluster = ~IDPUF
-  ))
-# controls = c("MatzavMishpachti","Dat","GilNK","MachozMegurim","TeudaGvoha")
-# Side effects: print()s the etable.
+  invisible(list(table = etable_df, models = list(employed = fixest)))
+# Employed ~ Mother + Post + Mother:Post + DEFAULT_CONTROLS, cluster = ~IDPUF.
 
 basic_reg_comp(cleaned_data: tibble) ->
-  invisible(list(
-    table  = etable_df,
-    models = list(employed = fixest, employed_muasak = fixest)
-  ))
-# Same formula as basic_reg(), fit once on the full sample and once on filter(!is.na(Muasak)).
+  invisible(list(table = etable_df, models = list(employed = fixest, employed_muasak = fixest)))
+# Same formula as basic_reg(), fit on the full sample and on filter(!is.na(Muasak)).
 # Not called from main.R by default.
 
-employment_by_child_age(cleaned_df: tibble) ->
-  invisible(list(
-    emp_raw       = tibble,   # ChildAgeBin, emp_rate, n
-    emp_by_period = tibble,   # ChildAgeBin, Post, emp_rate, n, Period
-    model         = fixest,   # Employed ~ ChildAgeBin + controls, cluster = ~IDPUF
-    plots         = list(raw = ggplot, period = ggplot, adjusted = ggplot)
-  ))
-# Side effects: message()/print()s tables; print()s 3 ggplots.
-
-run_diagnostics(cleaned_df: tibble) ->
-  invisible(list(
-    did_table      = tibble,   # Mother, Post, emp_rate, n
-    na_summary     = tibble,   # 1-row wide NA counts for regression variables
-    miss_pattern   = tibble,   # emp_missing, pct_mother, mean_age, n
-    pretrend_model = fixest    # Employed ~ Mother + i(ShnatSeker, Mother, ref=2019) + controls
-  ))
-# Side effects: dev.new()/iplot() for the event-study plot (needs a null-device wrapper in any
-# non-interactive context — see TESTING_BLUEPRINT.md).
-```
-
-### Proposed (to close the HLD's gaps — do not yet exist)
-
-```r
+# ── intensive_margin_regression.R / intensive_margin_lee_bounds.R ──────────
 run_intensive_margin_reg(cleaned_df: tibble, controls: character = DEFAULT_CONTROLS) ->
   invisible(list(table = etable_df, models = list(hours = fixest)))
-# WorkHoursCont ~ Mother + Post + Mother:Post + controls, cluster = ~IDPUF, filtered to Employed==1
-# (hours are only meaningful conditional on employment).
+# WorkHoursCont ~ Mother + Post + Mother:Post + controls, cluster = ~IDPUF, Employed==1 only.
 
+run_intensive_margin_lee_bounds(cleaned_df: tibble, controls: character = DEFAULT_CONTROLS) ->
+  invisible(list(
+    table = tibble,   # bound (lower/point/upper), mother_post_coef
+    models = list(point = fixest, lower = fixest, upper = fixest),
+    diagnostics = list(selection_rates = tibble, s11_counterfactual = numeric(1),
+                        excess_selection = logical(1), trim_prop = numeric(1), n_trimmed = integer(1))
+  ))
+# Lee (2009) trimming bounds for run_intensive_margin_reg()'s Employed==1 selection risk —
+# see docs/decisions/intensive-margin-lee-bounds.md.
+
+# ── employment_by_child_age.R ────────────────────────────────────────────────
+employment_by_child_age(cleaned_df: tibble) ->
+  invisible(list(
+    emp_raw = tibble, emp_by_period = tibble, model = fixest,
+    plots = list(raw = ggplot, period = ggplot, adjusted = ggplot)
+  ))
+
+# ── Diagnostics.R ─────────────────────────────────────────────────────────
+run_diagnostics(cleaned_df: tibble) ->
+  invisible(list(
+    did_table = tibble, na_summary = tibble, miss_pattern = tibble,
+    pretrend_table = etable_df, pretrend_model = fixest
+    # Employed ~ Mother + i(ShnatSeker,ref=2019) + i(ShnatSeker,Mother,ref=2019) + controls
+  ))
+# Side effects: iplot(reg_pretrend, i.select = 2, ...) draws to whatever device is active (no
+# dev.new()) -- needs an explicit device (main.R) or a null-device wrapper (tests) around the call.
+
+# ── gender_placebo.R ─────────────────────────────────────────────────────────
+run_gender_placebo(folder_path: character(1)) ->
+  invisible(list(cleaned_men = tibble, result = list(...)))  # result is basic_reg()'s own return
+# Not called from main.R by default.
+
+# ── wfh_exposure_index.R / wfh_exposure_cells.R / isco_masking_diagnostics.R /
+#    ddd_collinearity_diagnostics.R ────────────────────────────────────────
 build_wfh_exposure_index(cleaned_df: tibble,
                           isco_col: character(1) = "MishlachYad_ISCO_08_2",
                           wfh_col: character(1) = "WFH",
-                          ref_year: numeric(1) = 2021) -> tibble
-# Returns one row per occupation code: occupation_code, wfh_exposure (share of that occupation's
-# workers with WFH==1 in ref_year). NOTE: the research doc specifies the 2020 WFH variable as the
-# exposure anchor, but 2020 is excluded from this project's sample entirely (transitional-year
-# exclusion) — ref_year defaults to 2021 pending a decision on whether a separate 2020-only extract
-# is pulled just for this index (see HLD Gap Analysis).
+                          ref_year: numeric = 2021,
+                          weight_col: character(1) = NULL, min_n: numeric(1) = 0) -> tibble
+# occupation_code, wfh_exposure, n. ref_year anchored to 2021, not the research doc's literal 2020
+# (excluded from this project's sample) -- see docs/decisions/checkpoint6-wfh-anchor-year.md.
 
+build_exposure_isco2(path: character(1) = "israeli_cbs_wfh_2digit.csv") -> tibble  # ISCO2, tele_ext
+# Reads the external Dingel & Neiman teleworkability score. `path` exists so callers/tests can
+# point elsewhere; the default file isn't present in every environment.
+
+calibrate_isco_exposure(cleaned_df: tibble, exposure_isco2: tibble, wfh_col: character(1) = "WFH",
+                         ref_year: numeric = c(2022, 2023), gap_threshold: numeric(1) = 0.5,
+                         conf_level: numeric(1) = 0.95) -> tibble
+# ISCO2, tele_ext, n, realized_wfh, se_clustered, se_na_reason, gap, margin, swap,
+# wfh_exposure_calibrated. One-sided cluster-robust test of whether realized WFH exceeds the
+# external score by more than gap_threshold, at conf_level confidence — see
+# docs/decisions/calibrated-exposure-and-cell-ddd.md.
+
+build_exposure_cells(raw_all: tibble, exposure_isco2: tibble,
+                      cell_vars: character = c("Min", "GilNK", "TeudaGvoha", "MachozMegurim")) -> tibble
+# Pre-period (2017-2019) shift-share exposure by demographic cell, weighted by MishkalSofi. The
+# primary DDD's exposure regressor -- unlike the other 3 measures, defined for non-employed rows too.
+
+check_isco_masking_sensitivity(cleaned_df: tibble, wfh_col: character(1) = "WFH",
+                                ref_year: numeric = c(2022, 2023)) ->
+  invisible(list(by_group = tibble, comparison_wide = tibble, model = fixest))
+# Proxy check: realized WFH, masked vs. unmasked, within each ISCO1 major group.
+
+check_spec1_collinearity(ddd_df: tibble, cell_fe_vars: character, controls: character) ->
+  invisible(list(r2_wfh_exposure_on_cells = numeric(1), vif_wfh_exposure = numeric(1),
+                  condition_number = numeric(1)))
+# Runtime collinearity diagnostic for the primary DDD's Spec 1. Base R only (lm(), kappa()) --
+# deliberately no car dependency.
+
+# ── ddd_regression.R ──────────────────────────────────────────────────────
 run_ddd_regression(cleaned_df: tibble, exposure_index: tibble,
                     controls: character = DEFAULT_CONTROLS) ->
-  invisible(list(table = etable_df, models = list(ddd = fixest, mechanism = lm)))
-# Two models: (1) Employed ~ Mother*Post*WFH_Exposure + controls (triple interaction);
-# (2) the second-stage beta_j ~ gamma_0 + gamma_1 * WFH_Exposure_j mechanism regression
-# from occupation-level DiD estimates.
+  invisible(list(
+    table = etable_df, models = list(ddd = fixest, mechanism = lm), mechanism_data = tibble,
+    dropped_occupations = list(data = tibble, n_dropped = integer(1),
+                                mean_exposure_dropped = numeric(1), mean_exposure_retained = numeric(1))
+  ))
+# Model 1: Employed ~ Mother*Post*WFH_Exposure + controls (triple interaction).
+# Model 2: precision-weighted (1/se_j^2) beta_j ~ gamma_0 + gamma_1*WFH_Exposure_j, from
+# occupation-stratified basic_reg() runs.
 
-load_and_clean_data(folder_path: character(1),
-                     sex_filter: character = c("women", "men")) -> tibble
-# BREAKING CHANGE to the existing signature: sex_filter defaults to "women" to preserve current
-# behavior (Min==2) for every existing caller; "men" selects Min==1 for the Gender Placebo Test.
+# ── israeli_market_mismatch.R ────────────────────────────────────────────────
+check_market_mismatch(cleaned_df: tibble, exposure_path: character(1) = "israeli_cbs_wfh_2digit.csv",
+                       ...) -> tibble
+# calibrate_isco_exposure()'s output plus israel_vs_us_gap, abs_mismatch; sorted desc(abs_mismatch).
+# Descriptive-only; not sourced by main.R (invoked via run_mismatch.R).
+
+# ── export_results.R ──────────────────────────────────────────────────────
+export_all_results(results_list: list, output_dir: character(1) = "outputs") -> invisible(character)
+# Recursively walks results_list: data frames -> CSV, ggplots -> PNG, fixest/lm objects skipped.
+# Returns the vector of file paths written.
 ```
 
 ## HLD Gap Analysis
 
-| Gap (from `docs/HLD.md` §4.2) | Exact missing piece | Blocking dependency | Effort/risk |
-|---|---|---|---|
-| Intensive-margin regression | `run_intensive_margin_reg()` function | None — `WorkHoursCont` already exists and is clean (0.001% NA) | Low. Straightforward `fixest` call, same pattern as `basic_reg()`. |
-| WFH-Exposure Index | `build_wfh_exposure_index()` function; occupation-level aggregation | `MishlachYad_ISCO_08_2` is parsed but nothing aggregates it; **and** the research doc's specified anchor year (2020) is excluded from this project's sample entirely, so the index can't be built from `cleaned_df` as currently filtered without a decision on data source | Medium. Needs either a separate 2020 extract or a documented deviation to use 2021 as the exposure-anchor year instead. |
-| DDD mechanism regression | `run_ddd_regression()` function | Depends entirely on the WFH-Exposure Index above | Medium, gated on the item above. |
-| Gender Placebo Test | fathers-vs-childless-men variant of `basic_reg()`; a way to get men into `cleaned_df` at all | `data_processing.R`'s `Min==2` filter is unconditional — no parameter exists to select men. Every downstream file's variable naming/comments also implicitly assume "women" (e.g. `Mother` is defined the same way regardless of sex, which is actually fine, but district/education/marital controls were never checked for a male subsample's category sparsity) | Medium-high. Needs the `sex_filter` signature change above, then a re-check of every control's category sizes within the male subsample (Priority-3 concern: `Validation & Thresholds` §"soft-fail" logic should be re-run against the men-only sample before trusting the placebo model). |
-| Continuous `Age`/`Age²` controls | A continuous-age column | **Confirmed absent from the raw CBS extract entirely** — no `Gil` (age) column exists beyond age-*group* codes (`GilNK`) and child-age codes; no birth-year column (`ShnatLeda` or equivalent) exists either, so age can't even be back-calculated | This is a **data-availability gap, not a coding gap**. Requires either requesting a wider CBS extract that includes continuous age or birth year, or formally dropping this control from the Part 4 §2 spec in favor of the categorical `GilNK` already in use (which is what Part 3 §3's advisor feedback actually called for). |
-| Persisted output/export layer | Nothing writes a table or plot to disk | None technical — just not built | Low effort, but pulls in a new dependency (see Roadmap). |
-| Validation/threshold checks (this document's own §2) | No guard function exists anywhere in the codebase today | None | Low effort, pure `tidyverse`/base R, no new dependency. |
-| Schema-drift check (this document's own §2) | No guard function exists | None | Low effort, but needs at least 2 years' raw headers to test against meaningfully. |
+**Status: closed.** Every gap this table originally tracked (validation/threshold checks, the schema-drift check, the intensive-margin regression, the WFH-exposure index, the DDD mechanism regression, the Gender Placebo Test, and the persisted output/export layer) is now implemented — see `docs/HLD.md` §4.1 for the full current file list, and `docs/ROADMAP.md` for the checkpoint history. The one item below that was ever a genuine data-availability blocker (not an engineering gap) was resolved as a recorded decision rather than closed by acquiring new data:
+
+| Original gap | Resolution |
+|---|---|
+| Continuous `Age`/`Age²` controls — confirmed absent from the raw CBS extract entirely (no `Gil`/`ShnatLeda`-equivalent column exists) | **Decided, not built**: `docs/decisions/checkpoint8-age-age2-controls.md` formally replaces this control with the categorical `GilNK` already in use everywhere — matching Part 3 §3's own advisor feedback for categorical dummies. Not an open gap. |
+
+Work has since gone **beyond** what this table or the original roadmap scoped — a statistically-calibrated exposure measure and a cell-based primary DDD (`wfh_exposure_cells.R`, `docs/decisions/calibrated-exposure-and-cell-ddd.md`), a Lee (2009) selection-bounds correction for the intensive margin (`docs/decisions/intensive-margin-lee-bounds.md`), and several runtime diagnostics (`validation.R`'s `check_idpuf_panel_structure()`/`check_wfh_refweek_avadbeshavua()`, `isco_masking_diagnostics.R`, `ddd_collinearity_diagnostics.R`). None of these are "gaps" in the sense this table originally meant (missing pieces of the research-doc spec) — they're refinements layered on top of a complete spec, each with its own decision memo. See `docs/HLD.md` §4.2 for the current list of documented limitations and deliberate decisions (survey weights not applied, Lee bounds' one-directional limitation, etc.) — that's the accurate analogue of this section today.
 
 ## Implementation Roadmap
 
-Prioritized checklist, each item tagged with the concrete tool/library it needs:
-
-1. **Validation/threshold guard function** — base R + `tidyverse`, no new dependency. Do this first: it protects every subsequent item from silently building on broken data.
-2. **Schema-drift check** — base R (`setdiff`/column-position comparison across raw CSV headers), no new dependency.
-3. **Intensive-margin regression** (`run_intensive_margin_reg()`) — `fixest`, no new dependency. Highest-value item with zero blocking dependencies.
-4. **`controls` de-duplication** (referenced in `TESTING_BLUEPRINT.md`, relevant here too since every new regression function above needs the same list) — no new dependency; a shared constant sourced once.
-5. **WFH-Exposure Index construction** — `tidyverse`; blocked pending a decision on the 2020-anchor-year data question above.
-6. **DDD mechanism regression** — `fixest`; blocked on #5.
-7. **Gender Placebo Test** — `fixest` + the `load_and_clean_data()` signature change; medium effort, no new dependency, but touches the most files (every control's category-sparsity needs re-validation for the male subsample).
-8. **Age/Age² controls** — **blocked on data availability**, not an engineering task. Escalate to the research team to either request a wider CBS extract or formally drop this from the spec.
-9. **Persisted output/export layer** — new dependency territory (e.g. `gt`/`officer`/`rmarkdown` for tables and a written report). Explicitly deferred: outside the project's current minimal (`tidyverse` + `fixest`) dependency footprint, lowest priority relative to the modeling gaps above.
+**Status: complete.** The 9-step build order this section originally specified (validation guard → schema-drift check → intensive-margin regression → controls de-duplication → WFH-exposure index → DDD mechanism regression → Gender Placebo Test → Age/Age² decision → export layer) matches `docs/ROADMAP.md`'s 10 checkpoints and all of it has shipped. For what's been built since, see `docs/HLD.md` §4.1's file table and the decision memos in `docs/decisions/`. There is currently no pending roadmap item — new work should get its own checkpoint entry or decision memo (per `CLAUDE.md`'s convention) rather than being implemented ad hoc, so a future reader can find the rationale the way this section once made possible for the original 9.
 
 ## Verification
 
-This document's Data Schema and Validation sections were generated by loading the actual `cleaned_df.rds` cache (372,741 × 81, produced by the current `data_processing.R`) and dumping real column names, types, factor levels, and NA rates via `Rscript` — not reconstructed from reading source code. The Age/Age² data-availability claim was confirmed by grepping every raw CSV header for age- and birth-year-related column names before writing it down as absent. Every function signature under "Existing" was cross-checked against the current `.R` files.
+The original 81-column Data Schema and Validation sections were generated by loading the actual `cleaned_df.rds` cache (372,741 × 81, as it stood at the time) and dumping real column names, types, factor levels, and NA rates via `Rscript` — not reconstructed from reading source code. The Age/Age² data-availability claim was confirmed by grepping every raw CSV header for age- and birth-year-related column names before writing it down as absent — this remains true; it's the reason `docs/decisions/checkpoint8-age-age2-controls.md` exists. The 6 columns added since (see "Columns added since the original 81-column pull") and the "Core Function Signatures" section were reconciled directly against the current `.R` files in this repo, not from a fresh `Rscript` data pull — flagged wherever that distinction matters. `Validation & Thresholds`' hard/soft-fail checks and the schema-drift check are no longer a design spec; both are implemented in `validation.R` and can be read directly from source.

@@ -117,17 +117,10 @@ load_and_clean_data <- function(folder_path, sex_filter = c("women", "men")) {
       ISCO_masked = !is.na(.isco_chr) & is.na(MishlachYad_ISCO_08_2),
       ISCO1 = suppressWarnings(as.numeric(str_sub(.isco_chr, 1, 1))),
 
-      # Continuous work-hours variable: bins 0-10 -> their range's median; codes
-      # 11/12 (irregular hours, <35 / >=35) imputed from the sample's own median
-      # hours among regular workers in the matching range; code 99 (irregular,
-      # unknown extent) -> NA.
+      # Bin-index -> median-hours lookup for ShaotAvodaBederechKlalNK's regular-hours codes
+      # (0-10). WorkHoursCont itself (including the code-11/12 irregular-hours imputation) is
+      # computed further below, after this mutate() and grouped by Post -- see that block for why.
       .hour_bin_val = unname(hour_bin_median[as.character(ShaotAvodaBederechKlalNK)]),
-      WorkHoursCont = case_when(
-        ShaotAvodaBederechKlalNK %in% 0:10 ~ .hour_bin_val,
-        ShaotAvodaBederechKlalNK == 11      ~ median(.hour_bin_val[ShaotAvodaBederechKlalNK %in% 1:5], na.rm = TRUE),
-        ShaotAvodaBederechKlalNK == 12      ~ median(.hour_bin_val[ShaotAvodaBederechKlalNK %in% 6:10], na.rm = TRUE),
-        .default = NA_real_
-      ),
 
       # Education, grouped into broader categories (raw TeudaGvoha codes; 99 -> NA)
       TeudaGvoha = factor(
@@ -168,6 +161,25 @@ load_and_clean_data <- function(folder_path, sex_filter = c("women", "men")) {
         .default = NA_integer_
       )
     ) %>%
+    # Continuous work-hours variable: bins 0-10 -> their range's median (a per-row lookup,
+    # independent of period). Codes 11/12 (irregular hours, <35 / >=35 weekly) are imputed from
+    # the sample's OWN median hours among regular (non-irregular) workers in the matching range --
+    # computed separately for the pre- (Post==0) and post- (Post==1) WFH-shift periods, not pooled
+    # across 2017-2023. Pooling both periods into one constant would silently blend their hour
+    # distributions and mechanically dampen exactly the kind of period-specific intensity shift
+    # (irregular-hours workers' typical hours changing after WFH adoption) the intensive-margin
+    # DiD (intensive_margin_regression.R) is designed to detect. Code 99 (irregular, unknown
+    # extent) -> NA, same as before.
+    group_by(Post) %>%
+    mutate(
+      WorkHoursCont = case_when(
+        ShaotAvodaBederechKlalNK %in% 0:10 ~ .hour_bin_val,
+        ShaotAvodaBederechKlalNK == 11      ~ median(.hour_bin_val[ShaotAvodaBederechKlalNK %in% 1:5], na.rm = TRUE),
+        ShaotAvodaBederechKlalNK == 12      ~ median(.hour_bin_val[ShaotAvodaBederechKlalNK %in% 6:10], na.rm = TRUE),
+        .default = NA_real_
+      )
+    ) %>%
+    ungroup() %>%
     select(-.hour_bin_val, -.hrs_home, -.hrs_total, -.isco_chr) %>%
     mutate(
       across(
