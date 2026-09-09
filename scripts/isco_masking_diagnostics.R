@@ -32,9 +32,16 @@ check_isco_masking_sensitivity <- function(cleaned_df, wfh_col = "WFH", ref_year
     mutate(mask_label = if_else(ISCO_masked, "masked", "unmasked"))
 
   # ── Descriptive comparison: mean realized WFH, masked vs. unmasked, within each ISCO1 group ──
+  # tidyr::complete() guarantees both mask_label levels exist for every ISCO1 group even when the
+  # whole filtered sample happens to contain only masked (or only unmasked) rows -- otherwise
+  # pivot_wider() below would never create one of the two mean_wfh_*/n_* column families at all,
+  # and the gap mutate() would error on a genuinely missing column rather than produce a graceful
+  # NA (this is the ISCO1==3 case in test-isco_masking_diagnostics.R: an occupation with no masked
+  # rows at all still needs a comparison_wide row, just with mean_wfh_masked/gap == NA).
   by_group <- df %>%
     group_by(ISCO1, mask_label) %>%
-    summarise(mean_wfh = mean(.data[[wfh_col]]), n = n(), .groups = "drop")
+    summarise(mean_wfh = mean(.data[[wfh_col]]), n = n(), .groups = "drop") %>%
+    tidyr::complete(ISCO1, mask_label = c("masked", "unmasked"), fill = list(n = 0L))
 
   comparison_wide <- by_group %>%
     pivot_wider(names_from = mask_label, values_from = c(mean_wfh, n)) %>%
@@ -48,9 +55,22 @@ check_isco_masking_sensitivity <- function(cleaned_df, wfh_col = "WFH", ref_year
   # ISCO1 as a fixed effect (not an additive control) makes this an exactly within-group
   # comparison, matching comparison_wide above -- a group with only masked or only unmasked rows
   # is constant on ISCO_masked and contributes nothing (correctly absorbed by its own FE, not an
-  # error).
-  reg <- feols(as.formula(paste(wfh_col, "~ ISCO_masked | ISCO1")), data = df, cluster = ~IDPUF)
-  print(etable(reg, headers = c("WFH ~ ISCO_masked | ISCO1 (within-group masking gap)"), digits = 4))
+  # error). But feols refuses to fit at all on fewer than 2 total rows (a real possibility on a
+  # small/thin ref_year x Employed x !is.na(ISCO1) x !is.na(wfh_col) slice) -- the same class of
+  # "too little data to compute anything" case calibrate_isco_exposure() already guards for, so it
+  #'s handled the same way here: skip the fit, report why, and let the descriptive comparison
+  # above stand on its own.
+  reg <- NULL
+  if (nrow(df) < 2) {
+    message(sprintf(
+      "check_isco_masking_sensitivity: only %d row(s) survived the ref_year/Employed/ISCO1/%s ",
+      nrow(df), wfh_col
+    ), "filters -- too few to fit the within-group regression. Skipping (model = NULL); the ",
+    "descriptive comparison_wide table above still stands.")
+  } else {
+    reg <- feols(as.formula(paste(wfh_col, "~ ISCO_masked | ISCO1")), data = df, cluster = ~IDPUF)
+    print(etable(reg, headers = c("WFH ~ ISCO_masked | ISCO1 (within-group masking gap)"), digits = 4))
+  }
 
   invisible(list(
     by_group        = by_group,

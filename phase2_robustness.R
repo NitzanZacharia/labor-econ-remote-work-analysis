@@ -16,7 +16,7 @@
 # silently reconstructing its own slightly different version.
 library(tidyverse)
 library(fixest)
-source("data_processing.R")
+source(file.path("scripts", "data_processing.R"))
 source("age_balance_robustness.R")
 
 prepare_reweighted_ddd_df <- function(cleaned_df, exposure_cells, rake = NULL) {

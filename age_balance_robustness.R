@@ -24,7 +24,7 @@
 # whichever rows it happens to be ranking.
 library(tidyverse)
 library(fixest)
-source("data_processing.R")
+source(file.path("scripts", "data_processing.R"))
 
 compute_pre_period_quartile_breaks <- function(cleaned_df, exposure_cells) {
   pre_wfh <- cleaned_df %>%

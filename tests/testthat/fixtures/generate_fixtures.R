@@ -41,7 +41,8 @@ make_row <- function(IDPUF, ShnatSeker, Min, GilNK, MisparYeladimAd17MB, GilYele
                       Muasak, AvodaMeHaBayit, ShaotAvodaBederechKlalNK, TeudaGvoha,
                       SemelEretzLeda, DargatNayadut, MishlachYad_ISCO_08_2, MachozYishuvAvoda,
                       Leom, MatzavMishpachti, Dat, MachozMegurim, MisparHorimYechidim,
-                      AvadMeHaBayit = NA, KamaShaot = NA, ShaotAvodaLeMaase = NA) {
+                      AvadMeHaBayit = NA, KamaShaot = NA, ShaotAvodaLeMaase = NA,
+                      MishkalSofi = 1) {
   row <- tibble(
     IDPUF = IDPUF, ShnatSeker = ShnatSeker, Min = Min, GilNK = GilNK,
     MisparYeladimAd17MB = MisparYeladimAd17MB, GilYeledTzairMBNK = GilYeledTzairMBNK,
@@ -53,7 +54,16 @@ make_row <- function(IDPUF, ShnatSeker, Min, GilNK, MisparYeladimAd17MB, GilYele
     Leom = Leom, MatzavMishpachti = MatzavMishpachti, Dat = Dat, MachozMegurim = MachozMegurim,
     MisparHorimYechidim = MisparHorimYechidim,
     AvadMeHaBayit = AvadMeHaBayit, KamaShaot = KamaShaot,
-    ShaotAvodaLeMaase = ShaotAvodaLeMaase
+    ShaotAvodaLeMaase = ShaotAvodaLeMaase,
+    # CBS's own final survey design weight. load_and_clean_data() doesn't reference it by name
+    # (so it was never in this generator's original "columns used by name" scope), but
+    # build_exposure_cells() (wfh_exposure_cells.R) reads it directly off raw_all/cleaned_df
+    # downstream of load_and_clean_data() -- not dropped by any of data_processing.R's drop
+    # lists/ranges, so it passes through untouched on real data. Defaulted to a flat 1 here since
+    # the weighting arithmetic itself is already covered by test-wfh_exposure_cells.R's dedicated
+    # unequal-weight tests; this column only needs to exist so the full pipeline (test-pipeline_
+    # smoke.R's section-8 mirror) doesn't crash on a missing column.
+    MishkalSofi = MishkalSofi
   )
   for (col in range_boundary_cols) row[[col]] <- 0
   for (col in diagnostics_peek_cols) row[[col]] <- 0

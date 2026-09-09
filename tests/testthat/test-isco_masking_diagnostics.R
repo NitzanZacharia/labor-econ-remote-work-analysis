@@ -24,13 +24,17 @@ make_masking_synth <- function() {
   synth
 }
 
-test_that("check_isco_masking_sensitivity returns the documented structure and fits on fixture data", {
+test_that("check_isco_masking_sensitivity returns the documented structure against fixture data", {
   cleaned <- load_and_clean_data(fixtures_dir)
   out <- capture.output(res <- suppressWarnings(check_isco_masking_sensitivity(cleaned)))
 
   expect_type(res, "list")
   expect_true(all(c("by_group", "comparison_wide", "model") %in% names(res)))
-  expect_s3_class(res$model, "fixest")
+  # The fixtures deliberately carry only 1 row total for ShnatSeker %in% c(2022, 2023) (see
+  # generate_fixtures.R) -- too few for the within-group regression to fit, so model is correctly
+  # NULL here (the graceful-skip path); the richer make_masking_synth() panel below is what
+  # exercises an actual fit.
+  expect_true(is.null(res$model) || inherits(res$model, "fixest"))
 })
 
 test_that("fully-masked (ISCO1 == NA) rows are excluded entirely", {

@@ -10,8 +10,8 @@
 #
 # cleaned_df is expected to be the primary (women) analysis sample, matching main.R's ddd_df.
 library(tidyverse)
-source("data_processing.R")
-source("wfh_exposure_cells.R")
+source(file.path("scripts", "data_processing.R"))
+source(file.path("scripts", "wfh_exposure_cells.R"))
 
 run_balance_test <- function(cleaned_df, controls = DEFAULT_CONTROLS,
                               exposure_cells = NULL, exposure_calibrated = NULL,
@@ -29,7 +29,7 @@ run_balance_test <- function(cleaned_df, controls = DEFAULT_CONTROLS,
              "exposure_csv_path to the real file's location.")
       }
       message("Building calibrated occupation-level WFH exposure...")
-      exposure_external   <- build_exposure_isco2(csv_path = exposure_csv_path)
+      exposure_external   <- build_exposure_isco2(path = exposure_csv_path)
       exposure_calibrated <- calibrate_isco_exposure(cleaned_df, exposure_external)
     }
     message("Building cell-based WFH exposure...")

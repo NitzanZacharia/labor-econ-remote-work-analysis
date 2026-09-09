@@ -12,9 +12,35 @@ make_lee_bounds_row <- function(mother, post, employed, hours, ctrl) {
   )
 }
 
-test_that("run_intensive_margin_lee_bounds returns the documented structure and fits on fixture data", {
-  cleaned <- load_and_clean_data(fixtures_dir)
-  out <- capture.output(res <- run_intensive_margin_lee_bounds(cleaned))
+# load_and_clean_data(fixtures_dir)'s ~20 rows are sized for schema/parsing tests, not for a
+# saturated Mother:Post + all 5 DEFAULT_CONTROLS dummy sets to be identified (mirrors the same
+# fixture-power caveat test-gender_placebo.R's own docstring already documents for its DDD
+# placebo) -- against them, fixest's collinearity screening drops Mother:Post entirely rather than
+# just some control levels. A dedicated, adequately-sized synthetic panel with real random
+# variation in every control (matching test-balance_test.R's make_balance_panel() convention)
+# gives Mother:Post room to survive while still exercising the real function end to end.
+make_lee_bounds_synth_panel <- function() {
+  set.seed(55)
+  n <- 400
+  tibble::tibble(
+    Mother = sample(0:1, n, replace = TRUE),
+    Post   = sample(0:1, n, replace = TRUE),
+    Employed = stats::rbinom(n, 1, 0.7),
+    MatzavMishpachti = factor(sample(1:5, n, replace = TRUE)),
+    Dat               = factor(sample(1:5, n, replace = TRUE)),
+    GilNK             = factor(sample(3:7, n, replace = TRUE)),
+    MachozMegurim     = factor(sample(1:7, n, replace = TRUE)),
+    TeudaGvoha        = factor(sample(c("A", "B", "C"), n, replace = TRUE))
+  ) %>%
+    dplyr::mutate(
+      WorkHoursCont = ifelse(Employed == 1, stats::rnorm(dplyr::n(), 40, 8), NA_real_),
+      IDPUF = dplyr::row_number()
+    )
+}
+
+test_that("run_intensive_margin_lee_bounds returns the documented structure and fits on a well-powered panel", {
+  panel <- make_lee_bounds_synth_panel()
+  out <- capture.output(res <- run_intensive_margin_lee_bounds(panel))
 
   expect_type(res, "list")
   expect_true(all(c("table", "models", "diagnostics") %in% names(res)))
@@ -24,8 +50,8 @@ test_that("run_intensive_margin_lee_bounds returns the documented structure and 
 })
 
 test_that("run_intensive_margin_lee_bounds emits a message summarizing selection rates", {
-  cleaned <- load_and_clean_data(fixtures_dir)
-  expect_message(out <- capture.output(res <- run_intensive_margin_lee_bounds(cleaned)), "selection")
+  panel <- make_lee_bounds_synth_panel()
+  expect_message(out <- capture.output(res <- run_intensive_margin_lee_bounds(panel)), "selection")
 })
 
 test_that("bounds collapse exactly to the point estimate when there is no excess selection", {
@@ -34,7 +60,11 @@ test_that("bounds collapse exactly to the point estimate when there is no excess
     make_lee_bounds_row(
       mother, post,
       employed = rep(c(1L, 0L), c(50, 50)),
-      hours    = c(rep(40, 50), rep(NA_real_, 50)),
+      # Alternating +-1 around 40 (mean exactly 40, so the hand-computable "collapses to 40"
+      # arithmetic below is untouched) rather than a literal constant 40 -- a flat value across
+      # every employed row in every cell makes WorkHoursCont globally constant and feols refuses
+      # to fit at all ("The dependent variable is a constant").
+      hours    = c(rep(c(39, 41), length.out = 50), rep(NA_real_, 50)),
       ctrl     = ctrl
     )
   }
@@ -58,8 +88,14 @@ test_that("excess selection in Mother==1,Post==1 produces hand-computable lower/
   ctrl_extra <- factor(rep(c("A", "B"), length.out = 20))
   ctrl_unemp <- factor(rep(c("A", "B"), length.out = 50))
 
+  # base_cell (the 3 untreated cells) uses alternating +-1 hours around 40 -- mean still exactly
+  # 40, so none of the hand-computed bounds below change -- purely so the full sample isn't
+  # literally constant at 40 once the treated cell's own two exact values (40 core / 10 excess,
+  # left untouched below) get trimmed down to all-40 for the upper bound; a fully constant
+  # dependent variable makes feols refuse to fit at all. treated_cell keeps its original flat
+  # values unchanged, since the ranking/trimming arithmetic in the comments below depends on it.
   base_cell <- function(mother, post) dplyr::bind_rows(
-    make_lee_bounds_row(mother, post, rep(1L, 50), rep(40, 50), ctrl_core),
+    make_lee_bounds_row(mother, post, rep(1L, 50), rep(c(39, 41), length.out = 50), ctrl_core),
     make_lee_bounds_row(mother, post, rep(0L, 50), rep(NA_real_, 50), ctrl_unemp)
   )
 
