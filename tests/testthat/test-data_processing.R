@@ -46,11 +46,20 @@ test_that("WorkHoursCont: code 99 -> NA", {
   expect_true(all(is.na(vals)))
 })
 
-test_that("WorkHoursCont: codes 11/12 imputed as the median of the matching bin range", {
+test_that("WorkHoursCont: codes 11/12 are imputed from the matching bin range's median WITHIN the same Post period as the row being imputed", {
   hour_bin_median <- c(`0` = 0, `1` = 4, `2` = 11, `3` = 18, `4` = 25.5, `5` = 32,
                         `6` = 37, `7` = 42, `8` = 47, `9` = 54.5, `10` = 78.5)
-  under35_codes <- cleaned$ShaotAvodaBederechKlalNK[cleaned$ShaotAvodaBederechKlalNK %in% 1:5]
-  over35_codes  <- cleaned$ShaotAvodaBederechKlalNK[cleaned$ShaotAvodaBederechKlalNK %in% 6:10]
+
+  # The code-11 row (2019012) and code-12 row (2019013) in these fixtures are both Post==0
+  # (2019), so their imputation must be computed from Post==0's OWN codes 1-5 / 6-10 -- not
+  # pooled across the whole (both-period) sample. These fixtures' Post==1 women rows happen to
+  # include ShaotAvodaBederechKlalNK == 6 and 7 (2021001/2021002); a pooled (pre-fix)
+  # implementation would fold those into the code-12 median (giving 42), but the period-restricted
+  # implementation must not -- expected_12 here (47) is deliberately different from that pooled
+  # value, so a regression back to pooled imputation would be caught.
+  post0 <- cleaned[cleaned$Post == 0, ]
+  under35_codes <- post0$ShaotAvodaBederechKlalNK[post0$ShaotAvodaBederechKlalNK %in% 1:5]
+  over35_codes  <- post0$ShaotAvodaBederechKlalNK[post0$ShaotAvodaBederechKlalNK %in% 6:10]
   expected_11 <- median(hour_bin_median[as.character(under35_codes)], na.rm = TRUE)
   expected_12 <- median(hour_bin_median[as.character(over35_codes)], na.rm = TRUE)
 
@@ -58,6 +67,52 @@ test_that("WorkHoursCont: codes 11/12 imputed as the median of the matching bin 
   actual_12 <- unique(cleaned$WorkHoursCont[cleaned$ShaotAvodaBederechKlalNK == 12])
   expect_equal(actual_11, unname(expected_11))
   expect_equal(actual_12, unname(expected_12))
+  expect_equal(unname(expected_12), 47)  # sanity anchor: the (would-be-pooled) alternative is 42
+})
+
+test_that("WorkHoursCont's code-11 imputation differs by Post period when the surrounding regular-hours codes differ", {
+  # load_and_clean_data() reads from a folder of CSVs, so this builds a small, self-contained
+  # temporary fixture (not the shared sample_2019_Data.csv/sample_2021_Data.csv) with two Post
+  # periods whose codes 1-5 rows are deliberately different, so the code-11 imputed value must
+  # differ by period if (and only if) the imputation is genuinely period-restricted.
+  range_boundary_cols <- c(
+    "Yeladim0_1Prat", "Yeladim15_17Prat", "MisparHachlafa", "YachasKirvaNK",
+    "MisparNefashotGilAvodaV2007", "MisparPrat", "ChipusAvodaSherutTaasuka",
+    "ChipusAvodaOfenAcher", "RamatDat", "BituachLeumi"
+  )
+  make_period_row <- function(IDPUF, ShnatSeker, ShaotAvodaBederechKlalNK) {
+    row <- tibble::tibble(
+      IDPUF = IDPUF, ShnatSeker = ShnatSeker, Min = 2, GilNK = 4,
+      MisparYeladimAd17MB = 0, Muasak = 1, AvodaMeHaBayit = NA,
+      ShaotAvodaBederechKlalNK = ShaotAvodaBederechKlalNK, TeudaGvoha = 1,
+      SemelEretzLeda = 10, DargatNayadut = 1, MishlachYad_ISCO_08_2 = "100",
+      Leom = 1, MatzavMishpachti = 1, Dat = 1, MachozMegurim = 1, MisparHorimYechidim = 0,
+      AvadMeHaBayit = NA, KamaShaot = NA, ShaotAvodaLeMaase = NA
+    )
+    for (col in range_boundary_cols) row[[col]] <- 0
+    row
+  }
+
+  tmp_dir <- tempfile("workhours_period_fixture_")
+  dir.create(tmp_dir)
+  on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
+
+  # Pre (2019, Post==0): codes 1 (-> 4) and 2 (-> 11); median = 7.5.
+  # Post (2022, Post==1): codes 4 (-> 25.5) and 5 (-> 32); median = 28.75.
+  synth <- dplyr::bind_rows(
+    make_period_row(80001, 2019, 1),
+    make_period_row(80002, 2019, 2),
+    make_period_row(80003, 2019, 11),   # to be imputed from the 2019 (Post==0) pool -> 7.5
+    make_period_row(80004, 2022, 4),
+    make_period_row(80005, 2022, 5),
+    make_period_row(80006, 2022, 11)    # to be imputed from the 2022 (Post==1) pool -> 28.75
+  )
+  readr::write_csv(synth, file.path(tmp_dir, "period_fixture.csv"))
+
+  cleaned_period <- load_and_clean_data(tmp_dir)
+
+  expect_equal(cleaned_period$WorkHoursCont[cleaned_period$IDPUF == 80003], 7.5)
+  expect_equal(cleaned_period$WorkHoursCont[cleaned_period$IDPUF == 80006], 28.75)
 })
 
 test_that("TeudaGvoha: 11 raw codes collapse into the 6 documented groups, 99 -> NA", {
