@@ -18,6 +18,7 @@ source("export_results.R")
 source("wfh_exposure_index.R")
 source("wfh_exposure_cells.R")
 source("isco_masking_diagnostics.R")
+source("ddd_collinearity_diagnostics.R")
 source("ddd_regression.R")
 
 # ── 2. Configure paths ────────────────────────────────────────────────────────
@@ -153,8 +154,10 @@ exposure_cells <- build_exposure_cells(
 # ── 8a. Primary DDD: cell-based exposure, defined for the full sample ─────────
 # Two specs, reported side by side. WFH_Exposure is built from (GilNK, TeudaGvoha, MachozMegurim)
 # -- the same three variables DEFAULT_CONTROLS already includes additively -- so Spec 1's
-# WFH_Exposure carries substantial overlap with its own controls (74.5% of its variance is
-# explained by GilNK+TeudaGvoha+MachozMegurim alone; design-matrix condition number 267.8).
+# WFH_Exposure carries substantial overlap with its own controls (at the time of writing: 74.5% of
+# its variance explained by GilNK+TeudaGvoha+MachozMegurim alone; design-matrix condition number
+# 267.8 -- see check_spec1_collinearity() below, which recomputes both from the live data on every
+# run rather than leaving them as a static claim that could go stale as the microdata changes).
 # Spec 2 is the standard fix for a shift-share regressor like this: fully interacted cell fixed
 # effects absorb WFH_Exposure's own cross-cell level entirely (its bare main effect becomes exactly
 # collinear with the FE and fixest drops it automatically), so identification comes only from
@@ -185,6 +188,9 @@ primary_ddd_table <- etable(
   headers = c("Spec 1: additive controls", "Spec 2: interacted cell FE"), digits = 4
 )
 print(primary_ddd_table)
+
+message("Checking Spec 1's collinearity at runtime (see comment above)...")
+spec1_collinearity_check <- check_spec1_collinearity(ddd_df, cell_fe_vars, DEFAULT_CONTROLS)
 
 # ── 8b-8d. Robustness: occupation-level DDD + mechanism regression ────────────
 message("Running robustness DDD (calibrated occupation-level index)...")
