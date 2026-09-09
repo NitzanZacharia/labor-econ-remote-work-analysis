@@ -45,7 +45,13 @@ run_diagnostics <- function(cleaned_df) {
   # already handles this (see helper-setup.R's with_null_device()) -- main.R wraps this call in an
   # explicit device targeting outputs/; tests wrap it in a null device.
   tryCatch({
-    iplot(reg_pretrend, main = "Event-study: Mother x Year (ref = 2019)")
+    # reg_pretrend's formula has two separate i() terms, in this order: i(ShnatSeker, ref=2019)
+    # (year main effects, index 1) then i(ShnatSeker, Mother, ref=2019) (the Mother x Year
+    # interaction, index 2 -- the actual parallel-trends test this plot is titled for). iplot()'s
+    # i.select defaults to 1, i.e. the FIRST i() term -- without i.select = 2 here, this would
+    # silently plot the year main effects instead of the Mother x Year interaction the title
+    # claims to show, with no error to flag the mismatch.
+    iplot(reg_pretrend, i.select = 2, main = "Event-study: Mother x Year (ref = 2019)")
   }, error = function(e) {
     message("iplot failed: ", e$message)
   })
