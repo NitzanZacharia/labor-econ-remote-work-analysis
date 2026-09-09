@@ -57,7 +57,7 @@
 #   trimmed n is small.
 library(tidyverse)
 library(fixest)
-source("data_processing.R")
+source(file.path("scripts", "data_processing.R"))
 
 run_intensive_margin_lee_bounds <- function(cleaned_df, controls = DEFAULT_CONTROLS) {
 

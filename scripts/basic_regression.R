@@ -1,7 +1,7 @@
 #basic_regression
 library(tidyverse)
 library(fixest)
-source("data_processing.R")
+source(file.path("scripts", "data_processing.R"))
 
 basic_reg <- function(cleaned_data) {
   

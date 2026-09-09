@@ -1,12 +1,17 @@
 # Project conventions for Claude Code
 
-- This is a set of R scripts (no package layout). Dependencies: tidyverse + fixest only.
-  Do not add a new dependency without flagging it in your response first.
-- `main.R` is the orchestrator; every other .R file defines one function and is `source()`d.
+- This is a set of R scripts (no package layout — no DESCRIPTION/NAMESPACE, no roxygen, no
+  installed-package semantics). Dependencies: tidyverse + fixest only. Do not add a new dependency
+  without flagging it in your response first.
+- `main.R` is the orchestrator and stays at the repo root, alongside `run_tests.R` and
+  `run_mismatch.R`. Every other .R file defines one function, lives in `scripts/`, and is
+  `source()`d via a root-relative, path-qualified call (`source(file.path("scripts", "foo.R"))`) —
+  never a bare filename, since cwd is assumed to be the repo root wherever sourcing happens.
 - Raw CBS CSVs are gitignored and live outside the repo (real path is set locally in main.R's
   `folder_path`). Never assume they're present in a sandbox; check before running Rscript against them.
-- `DEFAULT_CONTROLS <- c("MatzavMishpachti","Dat","GilNK","MachozMegurim","TeudaGvoha")` is the
-  single source of truth once Checkpoint 3 lands — don't reintroduce a local copy in any new file.
+- `DEFAULT_CONTROLS <- c("MatzavMishpachti","Dat","GilNK","MachozMegurim","TeudaGvoha")`, defined
+  once in `scripts/data_processing.R`, is the single source of truth once Checkpoint 3 lands —
+  don't reintroduce a local copy in any new file.
 - CBS survey weights (`MishkalSofi`, `MishkalShnati`, etc.) are intentionally NOT applied in any
   outcome regression — see README.md's "Known limitations". This is a deliberate scope decision,
   not a gap. Do not add `weights =` to a `feols()`/`lm()` call in this repo without raising it with

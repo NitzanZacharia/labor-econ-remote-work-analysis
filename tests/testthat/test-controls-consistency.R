@@ -16,9 +16,9 @@ test_that("DEFAULT_CONTROLS has the expected 5 controls, in the documented order
 })
 
 test_that("controls vector is identical (== DEFAULT_CONTROLS) across the three files that define it", {
-  c1 <- extract_controls_vector(file.path(project_root, "basic_regression.R"))
-  c2 <- extract_controls_vector(file.path(project_root, "basic_reg_compared_data.R"))
-  c3 <- extract_controls_vector(file.path(project_root, "employment_by_child_age.R"))
+  c1 <- extract_controls_vector(file.path(project_root, "scripts", "basic_regression.R"))
+  c2 <- extract_controls_vector(file.path(project_root, "scripts", "basic_reg_compared_data.R"))
+  c3 <- extract_controls_vector(file.path(project_root, "scripts", "employment_by_child_age.R"))
 
   expect_identical(c1, DEFAULT_CONTROLS)
   expect_identical(c2, DEFAULT_CONTROLS)
@@ -31,19 +31,19 @@ test_that("no file reintroduces a local `*controls <- c(...)` literal instead of
   # regardless of what precedes "controls" in the variable name.
   for (f in c("basic_regression.R", "basic_reg_compared_data.R", "employment_by_child_age.R",
               "validation.R")) {
-    txt <- paste(readLines(file.path(project_root, f), warn = FALSE), collapse = "\n")
+    txt <- paste(readLines(file.path(project_root, "scripts", f), warn = FALSE), collapse = "\n")
     expect_false(grepl("controls\\s*<-\\s*c\\(", txt), info = f)
   }
 })
 
 test_that("Diagnostics.R's event-study formula is built from DEFAULT_CONTROLS, not a hardcoded list", {
-  txt <- paste(readLines(file.path(project_root, "Diagnostics.R"), warn = FALSE), collapse = "\n")
+  txt <- paste(readLines(file.path(project_root, "scripts", "Diagnostics.R"), warn = FALSE), collapse = "\n")
   expect_true(grepl("DEFAULT_CONTROLS", txt, fixed = TRUE))
   # and no leftover hardcoded control names inlined directly into the formula string
   expect_false(grepl("MatzavMishpachti \\+ Dat \\+ TeudaGvoha", txt))
 })
 
 test_that("validation.R's regression_controls references DEFAULT_CONTROLS, not a local literal", {
-  txt <- paste(readLines(file.path(project_root, "validation.R"), warn = FALSE), collapse = "\n")
+  txt <- paste(readLines(file.path(project_root, "scripts", "validation.R"), warn = FALSE), collapse = "\n")
   expect_true(grepl("regression_controls\\s*<-\\s*DEFAULT_CONTROLS", txt))
 })

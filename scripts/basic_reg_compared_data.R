@@ -1,7 +1,7 @@
 #basic_regression_compared_data
 library(tidyverse)
 library(fixest)
-source("data_processing.R")
+source(file.path("scripts", "data_processing.R"))
 
 basic_reg_comp <- function(cleaned_data) {
   

@@ -2,24 +2,24 @@
 
 # ── 1. Clear environment and load modules ─────────────────────────────────────
 rm(list = ls())
-source("data_processing.R")
-source("comparative_statistics.R")
-source("basic_regression.R")
-source("basic_reg_compared_data.R")
-source("Diagnostics.R")
-source("employment_by_child_age.R")
-source("validation.R")
-source("intensive_margin_regression.R")
-source("intensive_margin_lee_bounds.R")
-source("gender_placebo.R")
-source("export_results.R")
+source(file.path("scripts", "data_processing.R"))
+source(file.path("scripts", "comparative_statistics.R"))
+source(file.path("scripts", "basic_regression.R"))
+source(file.path("scripts", "basic_reg_compared_data.R"))
+source(file.path("scripts", "Diagnostics.R"))
+source(file.path("scripts", "employment_by_child_age.R"))
+source(file.path("scripts", "validation.R"))
+source(file.path("scripts", "intensive_margin_regression.R"))
+source(file.path("scripts", "intensive_margin_lee_bounds.R"))
+source(file.path("scripts", "gender_placebo.R"))
+source(file.path("scripts", "export_results.R"))
 
 # Load modules required for the WFH exposure index and DDD mechanism test
-source("wfh_exposure_index.R")
-source("wfh_exposure_cells.R")
-source("isco_masking_diagnostics.R")
-source("ddd_collinearity_diagnostics.R")
-source("ddd_regression.R")
+source(file.path("scripts", "wfh_exposure_index.R"))
+source(file.path("scripts", "wfh_exposure_cells.R"))
+source(file.path("scripts", "isco_masking_diagnostics.R"))
+source(file.path("scripts", "ddd_collinearity_diagnostics.R"))
+source(file.path("scripts", "ddd_regression.R"))
 
 # ── 2. Configure paths ────────────────────────────────────────────────────────
 message("Edit folder paths if needed!")
@@ -32,7 +32,7 @@ rds_file_path <- paste0(folder_path, "/cleaned_df.rds")
 # rule, or a new derived column) keeps getting silently reused with no error. The hash is stored
 # in a small sidecar file next to the cache.
 cache_meta_path       <- paste0(rds_file_path, ".meta.rds")
-data_processing_hash  <- unname(tools::md5sum("data_processing.R"))
+data_processing_hash  <- unname(tools::md5sum(file.path("scripts", "data_processing.R")))
 
 cache_is_valid <- file.exists(rds_file_path) && file.exists(cache_meta_path) &&
   identical(readRDS(cache_meta_path)$data_processing_hash, data_processing_hash)

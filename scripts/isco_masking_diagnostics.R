@@ -18,7 +18,7 @@
 #     reported below quantifies by how much, group by group.
 library(tidyverse)
 library(fixest)
-source("data_processing.R")
+source(file.path("scripts", "data_processing.R"))
 
 check_isco_masking_sensitivity <- function(cleaned_df, wfh_col = "WFH", ref_year = c(2022, 2023)) {
 

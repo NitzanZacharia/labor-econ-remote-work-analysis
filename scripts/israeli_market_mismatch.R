@@ -1,5 +1,5 @@
 library(tidyverse)
-source("wfh_exposure_cells.R")
+source(file.path("scripts", "wfh_exposure_cells.R"))
 
 # Descriptive-only exhibit: how far did Israeli WFH adoption (2022-2023, the "new normal" after
 # the initial pandemic disruption settled) diverge from Dingel & Neiman's theoretical

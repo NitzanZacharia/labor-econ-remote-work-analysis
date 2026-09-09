@@ -5,7 +5,7 @@ message("Loading pre-cleaned data...")
 cleaned_df <- readRDS("csvs/cleaned_df.rds")
 
 # 2. טעינה והפעלה של סקריפט הפערים
-source("israeli_market_mismatch.R")
+source(file.path("scripts", "israeli_market_mismatch.R"))
 mismatch_table <- check_market_mismatch(cleaned_df)
 
 # 3. שמירת התוצאה

@@ -7,9 +7,9 @@
 # read as "Father" without any code/column rename.
 library(tidyverse)
 library(fixest)
-source("data_processing.R")
-source("validation.R")
-source("basic_regression.R")
+source(file.path("scripts", "data_processing.R"))
+source(file.path("scripts", "validation.R"))
+source(file.path("scripts", "basic_regression.R"))
 
 run_gender_placebo <- function(folder_path) {
   message("Loading data for men (sex_filter = 'men')...")

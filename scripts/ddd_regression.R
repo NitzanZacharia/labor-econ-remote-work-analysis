@@ -4,8 +4,8 @@
 # occupation's WFH exposure. Depends on Checkpoint 6's build_wfh_exposure_index().
 library(tidyverse)
 library(fixest)
-source("data_processing.R")
-source("basic_regression.R")
+source(file.path("scripts", "data_processing.R"))
+source(file.path("scripts", "basic_regression.R"))
 
 run_ddd_regression <- function(cleaned_df, exposure_index, controls = DEFAULT_CONTROLS) {
 
