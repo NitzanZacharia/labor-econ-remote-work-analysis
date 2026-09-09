@@ -46,7 +46,7 @@ Two methodological gaps between the original research plan and the actual CBS ex
 - **Source**: Israeli CBS Labor Force Survey microdata. Raw files are yearly CSVs with Hebrew-transliterated variable names (e.g. `Muasak` = employed, `AvodaMeHaBayit` = works from home, `Leom` = population group).
 - **Not included in this repo**: raw CSVs are gitignored and must be supplied locally. Edit `folder_path` at the top of `main.R` to point at your local data folder.
 - **Sample**: women aged 25–59 by default, survey years 2017–2019 and 2021–2023 (2020 excluded — no raw extract exists for that year). `load_and_clean_data(folder_path, sex_filter = "men")` builds the analogous male subsample used by the gender placebo test.
-- **Caching**: the first run cleans the raw CSVs and saves the result as `cleaned_df.rds` in the data folder; subsequent runs load that cache instead of re-cleaning. Delete/rename the `.rds` file to force a rebuild after changing `data_processing.R`.
+- **Caching**: the first run cleans the raw CSVs and saves the result as `cleaned_df.rds` in the data folder, alongside a small `cleaned_df.rds.meta.rds` sidecar recording a hash of `data_processing.R`. Subsequent runs reuse the cache automatically, but only while that hash still matches — if `data_processing.R` has changed since the cache was built, `main.R` detects the mismatch and rebuilds automatically, so no manual delete step is needed.
 - **Schema-drift guard**: before a fresh (non-cached) load, `check_schema_drift()` verifies that a handful of name-bounded column ranges — used by positional `select(-(a:b))` drops in `data_processing.R` — occupy the same columns across every year's CSV, so a future CBS format change fails loudly instead of silently dropping the wrong data.
 - **Validation guard**: every load (cached or fresh) is checked by `validate_cleaned_df()`, which hard-fails (`stop()`) on impossible states (wrong sex code, out-of-range age group, a stray 2020 row, NAs in `Employed`/`Mother`/`Post`, zero rows) and warns on soft thresholds (a regression control with >5% NA, etc.).
 
@@ -130,7 +130,7 @@ Runs the `testthat` suite in `tests/testthat/` (data processing, validation, sch
 
 ## Known limitations
 
-- CBS survey weight columns (`MishkalSofi`, `MishkalShnati`, etc.) exist in the raw data but are not applied anywhere — all reported rates and regression coefficients are unweighted convenience-sample statistics, not population-representative estimates.
+- **Survey weights are intentionally not applied in any regression.** CBS weight columns (`MishkalSofi`, `MishkalShnati`, etc.) exist in the raw data and are deliberately excluded from every regression in this repo (`basic_reg()`, the intensive-margin/DDD models, the pretrend model, etc.) — this is a scope decision, not an oversight, and should not be "fixed" without a separate discussion. Reported rates and regression coefficients are unweighted estimates on the analysis sample, not population-representative statistics. (The one exception is `build_exposure_cells()` in `wfh_exposure_cells.R`, which does weight by `MishkalSofi` when aggregating occupation exposure up to demographic cells — that weighting is internal to building the exposure regressor, not a survey-representativeness correction for the outcome regressions themselves.)
 - The WFH-exposure index and age controls both deviate from the research doc's literal specification, as documented decisions (see `docs/decisions/`), because the raw CBS extract lacks a 2020 file and any continuous age/birth-year variable.
 
 ## Documentation map

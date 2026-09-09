@@ -7,6 +7,12 @@
   `folder_path`). Never assume they're present in a sandbox; check before running Rscript against them.
 - `DEFAULT_CONTROLS <- c("MatzavMishpachti","Dat","GilNK","MachozMegurim","TeudaGvoha")` is the
   single source of truth once Checkpoint 3 lands — don't reintroduce a local copy in any new file.
+- CBS survey weights (`MishkalSofi`, `MishkalShnati`, etc.) are intentionally NOT applied in any
+  outcome regression — see README.md's "Known limitations". This is a deliberate scope decision,
+  not a gap. Do not add `weights =` to a `feols()`/`lm()` call in this repo without raising it with
+  the user first. `build_exposure_cells()` (`wfh_exposure_cells.R`) is the one existing exception —
+  it weights by `MishkalSofi` when aggregating occupation exposure up to demographic cells, which is
+  internal to constructing the exposure regressor and not a survey-representativeness correction.
 - Before implementing anything, read: docs/ROADMAP.md (the checkpoint in question),
   docs/LLD.md (schema/contracts), docs/HLD.md (why the gap exists), TESTING_BLUEPRINT.md
   (how to test it). Don't implement from the research doc directly — LLD/HLD already reconcile

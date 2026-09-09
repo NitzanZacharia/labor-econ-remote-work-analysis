@@ -20,20 +20,34 @@ source("ddd_regression.R")
 
 # ── 2. Configure paths ────────────────────────────────────────────────────────
 message("Edit folder paths if needed!")
-folder_path   <- "csvs"
+folder_path   <- "G:/My Drive/Uni/econ/csv_data"
 rds_file_path <- paste0(folder_path, "/cleaned_df.rds")
 
 # ── 3. Execute data pipeline (with caching) ───────────────────────────────────
-if (file.exists(rds_file_path)) {
-  message("Found saved RDS file — loading pre-cleaned data...")
+# Cache validity is tied to data_processing.R's content, not just to the RDS file's existence --
+# otherwise a stale cache built before a data_processing.R change (e.g. a corrected WFH coding
+# rule, or a new derived column) keeps getting silently reused with no error. The hash is stored
+# in a small sidecar file next to the cache.
+cache_meta_path       <- paste0(rds_file_path, ".meta.rds")
+data_processing_hash  <- unname(tools::md5sum("data_processing.R"))
+
+cache_is_valid <- file.exists(rds_file_path) && file.exists(cache_meta_path) &&
+  identical(readRDS(cache_meta_path)$data_processing_hash, data_processing_hash)
+
+if (cache_is_valid) {
+  message("Found saved RDS file (data_processing.R unchanged) — loading pre-cleaned data...")
   cleaned_df <- readRDS(rds_file_path)
 } else {
+  if (file.exists(rds_file_path)) {
+    message("data_processing.R has changed since the cache was built — invalidating cache...")
+  }
   message("Checking raw CSV schema for column-order drift...")
   check_schema_drift(folder_path)
-  message("Saved RDS not found — loading and cleaning raw data...")
+  message("Saved RDS not found or stale — loading and cleaning raw data...")
   cleaned_df <- load_and_clean_data(folder_path)
   message("Saving cleaned data for future use...")
   saveRDS(cleaned_df, file = rds_file_path)
+  saveRDS(list(data_processing_hash = data_processing_hash), file = cache_meta_path)
 }
 
 message("Validating cleaned data...")
