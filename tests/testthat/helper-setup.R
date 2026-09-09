@@ -36,6 +36,10 @@ source(file.path(project_root, "export_results.R"), chdir = TRUE)
 source(file.path(project_root, "Diagnostics.R"), chdir = TRUE)
 source(file.path(project_root, "employment_by_child_age.R"), chdir = TRUE)
 source(file.path(project_root, "validation.R"), chdir = TRUE)
+source(file.path(project_root, "balance_test.R"), chdir = TRUE)
+source(file.path(project_root, "pretrend_wald_test.R"), chdir = TRUE)
+source(file.path(project_root, "age_balance_robustness.R"), chdir = TRUE)
+source(file.path(project_root, "phase2_robustness.R"), chdir = TRUE)
 
 fixtures_dir <- file.path(project_root, "tests", "testthat", "fixtures")
 
