@@ -58,17 +58,28 @@ run_ddd_regression <- function(cleaned_df, exposure_index, controls = DEFAULT_CO
     )
   }))
 
-  mechanism_df <- exposure_index %>%
-    left_join(occ_stats, by = "occupation_code") %>%
-    # se_j > 0 (not just !is.na()) guards against a degenerate fit reporting a zero SE, which
-    # would otherwise produce an infinite weight below.
-    filter(!is.na(beta_j), !is.na(se_j), se_j > 0)
+  joined <- exposure_index %>% left_join(occ_stats, by = "occupation_code")
+  # se_j > 0 (not just !is.na()) guards against a degenerate fit reporting a zero SE, which would
+  # otherwise produce an infinite weight below.
+  is_dropped  <- is.na(joined$beta_j) | is.na(joined$se_j) | joined$se_j <= 0
+  mechanism_df <- joined[!is_dropped, ]
+  dropped_df   <- joined[is_dropped, ]
 
-  n_dropped <- nrow(exposure_index) - nrow(mechanism_df)
+  n_dropped <- nrow(dropped_df)
   if (n_dropped > 0) {
     message(n_dropped, " of ", nrow(exposure_index), " occupation(s) dropped from the mechanism ",
             "regression (Mother:Post or its SE could not be estimated -- insufficient data or a ",
             "degenerate fit).")
+    # Small occupations are both the likeliest to fail basic_reg()'s fit AND plausibly not
+    # missing-at-random with respect to wfh_exposure itself (e.g. niche manual trades skew
+    # low-exposure, some small professional/tech niches skew high) -- so this compares the
+    # dropped and retained occupations' own exposure values directly, rather than leaving the
+    # pattern silent behind a bare drop count.
+    message(sprintf(
+      "  wfh_exposure -- dropped occupations: mean = %.3f (n = %d); retained occupations: mean = %.3f (n = %d).",
+      mean(dropped_df$wfh_exposure), n_dropped,
+      mean(mechanism_df$wfh_exposure), nrow(mechanism_df)
+    ))
   }
 
   reg_mechanism <- lm(beta_j ~ wfh_exposure, data = mechanism_df, weights = 1 / se_j^2)
@@ -77,6 +88,12 @@ run_ddd_regression <- function(cleaned_df, exposure_index, controls = DEFAULT_CO
   return(invisible(list(
     table          = table_ddd,
     models         = list(ddd = reg_ddd, mechanism = reg_mechanism),
-    mechanism_data = mechanism_df
+    mechanism_data = mechanism_df,
+    dropped_occupations = list(
+      data                    = dropped_df,
+      n_dropped               = n_dropped,
+      mean_exposure_dropped   = if (n_dropped > 0) mean(dropped_df$wfh_exposure) else NA_real_,
+      mean_exposure_retained  = mean(mechanism_df$wfh_exposure)
+    )
   )))
 }
