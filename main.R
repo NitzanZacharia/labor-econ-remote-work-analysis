@@ -105,7 +105,7 @@ dev.off()
 # index for realized-2022-23 values above an arbitrary gap threshold, with no account of sampling
 # noise), which both contaminated the DDD's exposure regressor with post-treatment behavior and
 # let a 4-observation occupation cell (ISCO 63) swing the ranking. See
-# C:\Users\Inbal\.claude\plans\shimmying-bouncing-pelican.md for the full argument.
+# docs/decisions/calibrated-exposure-and-cell-ddd.md for the full argument.
 message("Building the WFH-exposure measures...")
 
 # (a) External, exogenous teleworkability (Dingel & Neiman via O*NET/SOC->ISCO crosswalk).

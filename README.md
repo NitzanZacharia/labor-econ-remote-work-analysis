@@ -68,7 +68,7 @@ source("main.R")
 
 or from a shell: `Rscript main.R`.
 
-This runs the full default pipeline — load/validate data, comparative stats, the three baseline regressions (pooled, Jewish, Arab), the intensive-margin regression, child-age descriptives, and diagnostics — then writes every result to `outputs/` (see below). Three pieces of the empirical strategy are implemented but **not wired into this default run** and must be invoked manually (each sources its own dependencies):
+This runs the full default pipeline — load/validate data, comparative stats, the three baseline regressions (pooled, Jewish, Arab), the intensive-margin regression plus its Lee (2009) selection-bounds correction, child-age descriptives, diagnostics, and the full WFH-exposure/DDD analysis (four exposure measures, an ISCO-masking sensitivity check, the primary cell-based DDD with a runtime collinearity diagnostic, and three occupation-level robustness DDDs) — then writes every result to `outputs/` (see below). Two pieces of the empirical strategy are deliberately **not** wired into this default run and must be invoked manually:
 
 ```r
 # Robustness check: full sample vs. Muasak-observed-only
@@ -76,12 +76,9 @@ source("main.R"); basic_reg_comp(cleaned_df)
 
 # Gender placebo test (loads and validates a separate male subsample)
 source("gender_placebo.R"); run_gender_placebo(folder_path)
-
-# WFH-exposure index + DDD mechanism regression
-source("wfh_exposure_index.R"); source("ddd_regression.R")
-idx <- build_wfh_exposure_index(cleaned_df, ref_year = 2021)
-ddd <- run_ddd_regression(cleaned_df, idx)
 ```
+
+A third, fully separate script, `run_mismatch.R` (`Rscript run_mismatch.R`), runs a descriptive-only mismatch exhibit against a cached `cleaned_df.rds` — it requires `israeli_cbs_wfh_2digit.csv` at the repo root, which (like the raw CBS CSVs) is not included in this repo.
 
 ### Tests
 
@@ -104,10 +101,10 @@ Runs the `testthat` suite in `tests/testthat/` (data processing, validation, sch
 | `intensive_margin_regression.R` | `run_intensive_margin_reg()` | Intensive-margin counterpart to `basic_reg()`: `WorkHoursCont ~ Mother + Post + Mother:Post + controls`, estimated on `Employed == 1` only. |
 | `intensive_margin_lee_bounds.R` | `run_intensive_margin_lee_bounds()` | Lee (2009) trimming-bounds correction for the above: since `Employed` is itself a DiD outcome, conditioning the hours regression on `Employed == 1` risks selection bias if WFH differentially pulls marginal mothers into work post-2021. Reports a `[lower, upper]` bound on `Mother:Post` alongside the untrimmed point estimate — see `docs/decisions/intensive-margin-lee-bounds.md`. |
 | `gender_placebo.R` | `run_gender_placebo()` | Loads/validates the male subsample and reruns `basic_reg()` on it (fathers vs. childless men), as a placebo for the motherhood-specific interpretation. Sourced by `main.R` but **not called by default**. |
-| `wfh_exposure_index.R` | `build_wfh_exposure_index()` | Occupation-level (ISCO-08) WFH-exposure index, anchored to 2021 (see `docs/decisions/checkpoint6-wfh-anchor-year.md`). Not sourced by `main.R`; run manually. |
+| `wfh_exposure_index.R` | `build_wfh_exposure_index()` | Occupation-level (ISCO-08) WFH-exposure index, anchored to 2021 (see `docs/decisions/checkpoint6-wfh-anchor-year.md`). Sourced and called by default from `main.R` (one of four exposure measures — see `docs/decisions/calibrated-exposure-and-cell-ddd.md`). |
 | `isco_masking_diagnostics.R` | `check_isco_masking_sensitivity()` | Sensitivity check for CBS's ISCO-08 disclosure masking: since `wfh_exposure_index.R`/`wfh_exposure_cells.R` both drop masked-occupation rows, this compares realized WFH between masked and unmasked rows within the same coarse (`ISCO1`) occupation family, as a proxy for whether that dropped subsample is likely biasing the exposure index. |
 | `ddd_collinearity_diagnostics.R` | `check_spec1_collinearity()` | Runtime collinearity diagnostic for the primary DDD's Spec 1 (additive controls): recomputes `WFH_Exposure`'s own R²/VIF against the cell-defining controls and the Spec 1 design matrix's condition number from the live data, so these figures can't silently go stale as a hardcoded comment would. Base R only (`lm()`, `kappa()`) — deliberately avoids adding `car` as a dependency. |
-| `ddd_regression.R` | `run_ddd_regression()` | Triple-differences mechanism test: joins the exposure index onto the sample and estimates `Employed ~ Mother*Post*WFH_Exposure + controls`, plus a second-stage regression of per-occupation `Mother:Post` estimates on exposure. Depends on `wfh_exposure_index.R`; not sourced by `main.R`. |
+| `ddd_regression.R` | `run_ddd_regression()` | Triple-differences mechanism test: joins the exposure index onto the sample and estimates `Employed ~ Mother*Post*WFH_Exposure + controls`, plus a precision-weighted second-stage regression of per-occupation `Mother:Post` estimates on exposure (with a dropped-vs-retained-occupation exposure diagnostic). Sourced and called by default from `main.R`, three times — once each for the calibrated, external, and realized exposure measures (robustness checks; the primary DDD is the cell-based regression built directly in `main.R` §8a). |
 | `israeli_market_mismatch.R` | `check_market_mismatch()` | Descriptive-only exhibit comparing theoretical (Dingel & Neiman) vs. realized (2022-23) WFH by occupation — a thin wrapper around `calibrate_isco_exposure()`. Takes an `exposure_path` parameter (default: the real, locally-supplied `israeli_cbs_wfh_2digit.csv`) so it's testable without that file. Invoked via `run_mismatch.R`, not sourced by `main.R`. |
 | `employment_by_child_age.R` | `employment_by_child_age()` | Employment rates and a controlled regression by youngest-child age bin, with raw/adjusted-rate plots. |
 | `Diagnostics.R` | `run_diagnostics()` | 2×2 DiD table, event-study pre-trend plot, and missing-value audits for the regression variables. |
