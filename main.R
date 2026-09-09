@@ -17,6 +17,7 @@ source("export_results.R")
 # Load modules required for the WFH exposure index and DDD mechanism test
 source("wfh_exposure_index.R")
 source("wfh_exposure_cells.R")
+source("isco_masking_diagnostics.R")
 source("ddd_regression.R")
 
 # ── 2. Configure paths ────────────────────────────────────────────────────────
@@ -132,6 +133,14 @@ message(sprintf(
 print(exposure_calibrated %>% filter(swap) %>%
         select(ISCO2, n, tele_ext, realized_wfh, gap, se_clustered, margin) %>%
         as.data.frame(), digits = 3)
+
+# Sensitivity check: exposure_calibrated (and exposure_realized/exposure_cells below) is built by
+# dropping every disclosure-masked-ISCO row via !is.na(ISCO2) -- masking concentrates in thin
+# occupation cells, so this checks whether masked rows' realized WFH looks different from unmasked
+# rows' within the same coarse (ISCO1) occupation family, as a proxy for whether that dropped
+# subsample is likely to be biasing the exposure index. See isco_masking_diagnostics.R.
+message("Checking ISCO disclosure-masking sensitivity (masked vs. unmasked realized WFH)...")
+isco_masking_check <- check_isco_masking_sensitivity(cleaned_df)
 
 # (c) Realized Israeli WFH by occupation, anchored per
 # docs/decisions/checkpoint6-wfh-anchor-year.md. Post-treatment by construction -- a robustness
