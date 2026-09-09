@@ -90,20 +90,12 @@ pdf(file.path("outputs", "event_study_pretrend.pdf"))
 diagnostics_results <- run_diagnostics(cleaned_df)
 dev.off()
 
-# ── 8. Export results ─────────────────────────────────────────────────────────
-message("Exporting results to outputs/...")
-export_all_results(list(
-  comparative_stats       = comp_stats,
-  basic_reg               = baseline_results,
-  basic_reg_jewish        = baseline_jewish,
-  basic_reg_arab          = baseline_arab,
-  intensive_margin        = intensive_results,
-  intensive_margin_lee_bounds = intensive_lee_bounds,
-  employment_by_child_age = emp_res,
-  diagnostics             = diagnostics_results
-))
+# Results are exported once, at the very end of the script (── 9 ──), so that §8's WFH-exposure
+# measures and DDD regressions are captured in the same outputs/ artifact set as everything above
+# -- previously this export call ran here, before this section existed, so none of its results
+# ever reached disk (Checkpoint 9/10 gap).
 
-# ── 9. WFH-Exposure Measures & DDD Regression ─────────────────────────────────
+# ── 8. WFH-Exposure Measures & DDD Regression ─────────────────────────────────
 # Four separate measures, four separate purposes. They are NOT combined into one "best" index fed
 # to a single regression -- an earlier version of this section did that (swapping the theoretical
 # index for realized-2022-23 values above an arbitrary gap threshold, with no account of sampling
@@ -158,7 +150,7 @@ exposure_cells <- build_exposure_cells(
   exposure_calibrated %>% select(ISCO2, tele_ext = wfh_exposure_calibrated)
 )
 
-# ── 9a. Primary DDD: cell-based exposure, defined for the full sample ─────────
+# ── 8a. Primary DDD: cell-based exposure, defined for the full sample ─────────
 # Two specs, reported side by side. WFH_Exposure is built from (GilNK, TeudaGvoha, MachozMegurim)
 # -- the same three variables DEFAULT_CONTROLS already includes additively -- so Spec 1's
 # WFH_Exposure carries substantial overlap with its own controls (74.5% of its variance is
@@ -188,12 +180,13 @@ ddd_primary_fe <- feols(
                     "|", paste(cell_fe_vars, collapse = "^"))),
   data = ddd_df, cluster = ~IDPUF
 )
-print(etable(
+primary_ddd_table <- etable(
   ddd_primary_additive, ddd_primary_fe,
   headers = c("Spec 1: additive controls", "Spec 2: interacted cell FE"), digits = 4
-))
+)
+print(primary_ddd_table)
 
-# ── 9b-9d. Robustness: occupation-level DDD + mechanism regression ────────────
+# ── 8b-8d. Robustness: occupation-level DDD + mechanism regression ────────────
 message("Running robustness DDD (calibrated occupation-level index)...")
 ddd_calibrated <- run_ddd_regression(
   cleaned_df,
@@ -208,3 +201,30 @@ ddd_external <- run_ddd_regression(
 
 message("Running robustness DDD (realized Israeli index, 2021 anchor)...")
 ddd_realized <- run_ddd_regression(cleaned_df, exposure_realized)
+
+# ── 9. Export results ─────────────────────────────────────────────────────────
+# idpuf_panel_check is deliberately NOT included here: its idpuf_years/idpuf_periods tables are
+# keyed by individual IDPUF, which is closer to raw identifiable microdata than the aggregate
+# tables everything else in this list produces -- per this project's disclosure-risk convention
+# (CLAUDE.md, Checkpoint 9), only its console-printed summary counts are surfaced, not a
+# persisted per-person roster.
+message("Exporting results to outputs/...")
+export_all_results(list(
+  comparative_stats = comp_stats,
+  basic_reg = baseline_results,
+  basic_reg_jewish = baseline_jewish,
+  basic_reg_arab = baseline_arab,
+  intensive_margin = intensive_results,
+  intensive_margin_lee_bounds = intensive_lee_bounds,
+  employment_by_child_age = emp_res,
+  diagnostics = diagnostics_results,
+  isco_masking_sensitivity = isco_masking_check,
+  wfh_exposure_external = exposure_external,
+  wfh_exposure_calibrated = exposure_calibrated,
+  wfh_exposure_realized = exposure_realized,
+  wfh_exposure_cells = exposure_cells,
+  ddd_primary = primary_ddd_table,
+  ddd_calibrated = ddd_calibrated,
+  ddd_external = ddd_external,
+  ddd_realized = ddd_realized
+))
