@@ -247,9 +247,17 @@ run_diagnostics(cleaned_df: tibble) ->
 # dev.new()) -- needs an explicit device (main.R) or a null-device wrapper (tests) around the call.
 
 # ── gender_placebo.R ─────────────────────────────────────────────────────────
-run_gender_placebo(folder_path: character(1)) ->
-  invisible(list(cleaned_men = tibble, result = list(...)))  # result is basic_reg()'s own return
-# Not called from main.R by default.
+run_gender_placebo(folder_path: character(1), cleaned_women: tibble = NULL,
+                    exposure_calibrated: tibble = NULL,
+                    exposure_csv_path: character(1) = "data/israeli_cbs_wfh_2digit.csv") ->
+  invisible(list(cleaned_men = tibble, result = list(...), ddd_placebo = list(...) | NULL))
+  # result is basic_reg()'s own return; ddd_placebo is run_gender_ddd_placebo()'s return (NULL if
+  # no exposure_calibrated could be obtained/supplied).
+run_gender_ddd_placebo(cleaned_men: tibble, exposure_calibrated: tibble,
+                        controls: character = DEFAULT_CONTROLS) ->
+  list(exposure_cells_men = tibble, models = list(additive = fixest | NULL, fe = fixest | NULL))
+# Not called from main.R by default. Both feols() calls cluster on the (GilNK, TeudaGvoha,
+# MachozMegurim) cell, matching main.R's primary DDD -- WFH_Exposure is cell-constant here too.
 
 # ── wfh_exposure_index.R / wfh_exposure_cells.R / isco_masking_diagnostics.R /
 #    ddd_collinearity_diagnostics.R ────────────────────────────────────────
@@ -300,6 +308,43 @@ run_ddd_regression(cleaned_df: tibble, exposure_index: tibble,
 # Model 1: Employed ~ Mother*Post*WFH_Exposure + controls (triple interaction).
 # Model 2: precision-weighted (1/se_j^2) beta_j ~ gamma_0 + gamma_1*WFH_Exposure_j, from
 # occupation-stratified basic_reg() runs.
+
+# ── robustness/balance_test.R / age_balance_robustness.R / pretrend_wald_test.R ─────────────
+run_balance_test(cleaned_df: tibble, controls: character = DEFAULT_CONTROLS,
+                  exposure_cells: tibble = NULL, exposure_calibrated: tibble = NULL,
+                  exposure_csv_path: character(1) = "data/israeli_cbs_wfh_2digit.csv") ->
+  invisible(list(pre_df = tibble, gilnk_balance = tibble, gilnk_ttests = tibble,
+                  cat_distributions = tibble, cat_chisq = tibble))
+# Pre-period (ShnatSeker < 2020) covariate balance, Mother vs. non-Mother, by WFH_Exposure
+# quartile. pre_df is row-level -- excluded from export_all_results() (disclosure risk).
+
+diagnose_gilnk_by_quartile(cleaned_df: tibble, exposure_cells: tibble) ->
+  invisible(list(gap_by_quartile = tibble, breaks = numeric(5), pre_df = tibble))
+# gap_by_quartile: mean_GilNK_Mother0/1, gap_Mother1_minus_0, t_stat, p_value, n, per quartile.
+# Verified against real data 2026-09-09: gap is largest in Q1 (~-0.8 GilNK units, t~-81) and
+# shrinks/reverses by Q4 -- see docs/decisions/age-balance-robustness-chain.md.
+
+run_ddd_age_interacted(cleaned_df: tibble, exposure_cells: tibble,
+                        controls: character = DEFAULT_CONTROLS) ->
+  invisible(list(additive = fixest, fe = fixest))
+# main.R's primary DDD formulas + Mother:GilNK. Comparison spec, not a main.R replacement.
+
+build_gilnk_rake_weights(cleaned_df: tibble, exposure_cells: tibble) ->
+  list(weights = tibble(WFH_Exposure_Q, Mother, GilNK, rake_weight), breaks = numeric(5))
+run_ddd_reweighted(cleaned_df: tibble, exposure_cells: tibble,
+                    controls: character = DEFAULT_CONTROLS, rake: list = NULL) ->
+  invisible(list(rake = list(...), additive = fixest, fe = fixest))
+# Pre-period GilNK-raking weights (by WFH_Exposure quartile x Mother), applied via weights=
+# to the full-period regression. Comparison spec, not a main.R replacement.
+
+run_pretrend_joint_test(pretrend_model: fixest) -> invisible(wald_result)
+# Joint Wald test, H0: Diagnostics.R's pre-2020 Mother:year interactions are jointly zero.
+
+# All four wired into main.R behind RUN_AGE_BALANCE_ROBUSTNESS (default FALSE) -- see
+# docs/decisions/age-balance-robustness-chain.md. robustness/phase2_robustness.R
+# (run_ddd_twoway_cluster(), run_ddd_education_checks(), run_ddd_weights_check()) exists but is
+# NOT wired in: run_ddd_weights_check() applies MishkalSofi as a feols() weight, which needs
+# explicit user sign-off per CLAUDE.md before any run uses it, not just before committing output.
 
 # ── israeli_market_mismatch.R ────────────────────────────────────────────────
 check_market_mismatch(cleaned_df: tibble, exposure_path: character(1) = "data/israeli_cbs_wfh_2digit.csv",

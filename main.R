@@ -249,14 +249,46 @@ ddd_external <- run_ddd_regression(
 message("Running robustness DDD (realized Israeli index, 2021 anchor)...")
 ddd_realized <- run_ddd_regression(cleaned_df, exposure_realized)
 
+# ── 8e. Age-balance robustness chain (docs/decisions/age-balance-robustness-chain.md) ─────────
+# Off by default: these are diagnostic/comparison checks layered on top of the primary DDD (8a),
+# not a replacement for it -- whether run_ddd_age_interacted()/run_ddd_reweighted() should REPLACE
+# 8a as the primary spec is a separate, still-open methodological decision (see the decision memo),
+# not something this flag resolves. Previously this whole chain (robustness/balance_test.R,
+# age_balance_robustness.R, pretrend_wald_test.R) existed only as unit-tested functions with no
+# orchestrator ever calling them against real data -- the age-imbalance claim in
+# age_balance_robustness.R's own header comment was asserted, not verified, until this wiring.
+# phase2_robustness.R is deliberately NOT wired in here: its run_ddd_weights_check() applies
+# MishkalSofi as a feols() weight, which CLAUDE.md requires raising with the user before adding to
+# any run, not just before committing its output -- see the decision memo's "Not wired in" section.
+RUN_AGE_BALANCE_ROBUSTNESS <- FALSE
+if (RUN_AGE_BALANCE_ROBUSTNESS) {
+  source(file.path("robustness", "balance_test.R"))
+  source(file.path("robustness", "age_balance_robustness.R"))
+  source(file.path("robustness", "pretrend_wald_test.R"))
+
+  message("Running Phase 1b covariate-balance test (Mother vs. non-Mother, by WFH_Exposure quartile)...")
+  balance_check <- run_balance_test(cleaned_df, exposure_cells = exposure_cells)
+
+  message("Diagnosing GilNK (age-group) imbalance by WFH_Exposure quartile...")
+  age_balance_diag <- diagnose_gilnk_by_quartile(cleaned_df, exposure_cells)
+
+  message("Running age-interacted comparison spec (Mother:GilNK added to the primary DDD)...")
+  ddd_age_interacted <- run_ddd_age_interacted(cleaned_df, exposure_cells)
+
+  message("Running GilNK-reweighted comparison spec (pre-period raking weights)...")
+  ddd_reweighted <- run_ddd_reweighted(cleaned_df, exposure_cells)
+
+  message("Running joint Wald test on pre-2020 Mother:year pre-trend coefficients...")
+  pretrend_wald <- run_pretrend_joint_test(diagnostics_results$pretrend_model)
+}
+
 # ── 9. Export results ─────────────────────────────────────────────────────────
 # idpuf_panel_check is deliberately NOT included here: its idpuf_years/idpuf_periods tables are
 # keyed by individual IDPUF, which is closer to raw identifiable microdata than the aggregate
 # tables everything else in this list produces -- per this project's disclosure-risk convention
 # (CLAUDE.md, Checkpoint 9), only its console-printed summary counts are surfaced, not a
 # persisted per-person roster.
-message("Exporting results to outputs/...")
-export_all_results(list(
+results_to_export <- list(
   comparative_stats = comp_stats,
   basic_reg = baseline_results,
   basic_reg_jewish = baseline_jewish,
@@ -274,4 +306,30 @@ export_all_results(list(
   ddd_calibrated = ddd_calibrated,
   ddd_external = ddd_external,
   ddd_realized = ddd_realized
-))
+)
+
+if (RUN_AGE_BALANCE_ROBUSTNESS) {
+  # Only the aggregate pieces of each result -- balance_check$pre_df / age_balance_diag$pre_df are
+  # row-level (one row per surveyed person) and deliberately excluded, same disclosure-risk logic
+  # as idpuf_panel_check above.
+  results_to_export$age_balance_robustness <- list(
+    balance_test = list(
+      gilnk_balance     = balance_check$gilnk_balance,
+      gilnk_ttests      = balance_check$gilnk_ttests,
+      cat_distributions = balance_check$cat_distributions,
+      cat_chisq         = balance_check$cat_chisq
+    ),
+    age_imbalance_by_quartile = age_balance_diag$gap_by_quartile,
+    ddd_age_interacted = etable(
+      ddd_age_interacted$additive, ddd_age_interacted$fe,
+      headers = c("Age-interacted: additive", "Age-interacted: cell FE"), digits = 4
+    ),
+    ddd_reweighted = etable(
+      ddd_reweighted$additive, ddd_reweighted$fe,
+      headers = c("Reweighted: additive", "Reweighted: cell FE"), digits = 4
+    )
+  )
+}
+
+message("Exporting results to outputs/...")
+export_all_results(results_to_export)
