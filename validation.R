@@ -3,6 +3,7 @@
 # soft-fail thresholds from docs/LLD.md's "Validation & Thresholds" section against the output of
 # load_and_clean_data(), so every downstream analysis function builds on data that's been
 # verified, not assumed, correct.
+source("data_processing.R")
 
 validate_cleaned_df <- function(cleaned_df, sex_filter = c("women", "men")) {
 
@@ -47,7 +48,7 @@ validate_cleaned_df <- function(cleaned_df, sex_filter = c("women", "men")) {
 
   na_rate <- function(col) mean(is.na(cleaned_df[[col]])) * 100
 
-  regression_controls <- c("MatzavMishpachti", "Dat", "GilNK", "MachozMegurim", "TeudaGvoha")
+  regression_controls <- DEFAULT_CONTROLS
   for (col in regression_controls) {
     rate <- na_rate(col)
     if (rate > 5) {
