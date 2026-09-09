@@ -131,6 +131,75 @@ check_idpuf_panel_structure <- function(cleaned_df) {
   ))
 }
 
+# Verifies a raw-data assumption stated only in a comment, never previously checked in code:
+# data_processing.R's WFH_RefWeek block claims AvadMeHaBayit is "asked only of the employed who
+# actually worked that week (AvadBeshavua == 1), so the ~10,955 employed-but-absent per year are
+# legitimately NA rather than 0." AvadBeshavua itself is never referenced anywhere else in this
+# codebase (confirmed via grep) -- this is the first place it's actually used, specifically to
+# check that claim rather than trust it.
+#
+# Restricted to Post==1 (2021+) employed rows where AvadMeHaBayit is genuinely BLANK (as opposed
+# to an explicit code-9 "unknown" answer, which also produces WFH_RefWeek == NA but for an
+# unrelated reason -- response uncertainty, not absence that week -- and isn't what the comment
+# claims to explain). Pre-2021 rows are excluded because WFH_RefWeek is NA for them unconditionally
+# (data_processing.R's ShnatSeker < 2021 branch fires first, regardless of AvadBeshavua), so
+# checking them would say nothing about the claim.
+#
+# Tolerant, not a hard gate: AvadBeshavua is documented as a raw passthrough column in
+# docs/LLD.md, but this still degrades gracefully (a message, not an error) if it's ever absent --
+# e.g. for a 2017-only extract, where the whole WFH module may not exist at all.
+check_wfh_refweek_avadbeshavua <- function(cleaned_df) {
+  if (!"AvadBeshavua" %in% names(cleaned_df)) {
+    message("check_wfh_refweek_avadbeshavua: 'AvadBeshavua' is not present in cleaned_df -- the ",
+            "WFH_RefWeek-is-NA-because-not-asked-that-week claim in data_processing.R's comment ",
+            "cannot be verified against this data.")
+    return(invisible(list(available = FALSE)))
+  }
+
+  df <- cleaned_df %>% filter(Post == 1, Employed == 1, is.na(AvadMeHaBayit))
+  n <- nrow(df)
+
+  if (n == 0) {
+    message("check_wfh_refweek_avadbeshavua: no employed, Post==1 rows with a blank ",
+            "AvadMeHaBayit were found -- nothing to check.")
+    return(invisible(list(available = TRUE, n = 0)))
+  }
+
+  consistent    <- sum(df$AvadBeshavua != 1, na.rm = TRUE)  # supports the comment's claim
+  inconsistent  <- sum(df$AvadBeshavua == 1, na.rm = TRUE)  # contradicts it
+  indeterminate <- sum(is.na(df$AvadBeshavua))              # AvadBeshavua itself missing
+
+  message(sprintf(
+    paste0(
+      "check_wfh_refweek_avadbeshavua: of %d employed Post==1 row(s) with a blank AvadMeHaBayit, ",
+      "%d (%.1f%%) have AvadBeshavua != 1 (consistent with the 'not asked because absent that ",
+      "week' claim), %d (%.1f%%) have AvadBeshavua == 1 (INCONSISTENT -- worked that week but ",
+      "AvadMeHaBayit is still blank), %d (%.1f%%) have AvadBeshavua itself missing (indeterminate)."
+    ),
+    n, consistent, 100 * consistent / n, inconsistent, 100 * inconsistent / n,
+    indeterminate, 100 * indeterminate / n
+  ))
+
+  if (inconsistent > 0) {
+    warning(sprintf(
+      paste0(
+        "check_wfh_refweek_avadbeshavua: %d row(s) contradict data_processing.R's WFH_RefWeek ",
+        "comment (AvadBeshavua == 1 but AvadMeHaBayit is blank) -- the comment's causal claim may ",
+        "not fully hold; review before relying on it."
+      ),
+      inconsistent
+    ))
+  }
+
+  invisible(list(
+    available     = TRUE,
+    n             = n,
+    consistent    = consistent,
+    inconsistent  = inconsistent,
+    indeterminate = indeterminate
+  ))
+}
+
 # Guards the 5 remaining positional range-drops in data_processing.R's load_and_clean_data() (e.g.
 # -(RamatDat:BituachLeumi)), which depend on the raw CSV's column *order*, not names. If a future
 # CBS data release reorders or inserts a column, those ranges could silently start dropping (or

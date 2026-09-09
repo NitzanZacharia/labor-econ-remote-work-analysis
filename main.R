@@ -59,6 +59,9 @@ validate_cleaned_df(cleaned_df)
 message("Checking IDPUF panel structure (cluster-SE unit vs. Mother/Post design)...")
 idpuf_panel_check <- check_idpuf_panel_structure(cleaned_df)
 
+message("Checking WFH_RefWeek's NA rationale against AvadBeshavua...")
+wfh_refweek_check <- check_wfh_refweek_avadbeshavua(cleaned_df)
+
 # ── 4. Comparative statistics ─────────────────────────────────────────────────
 message("Running comparative statistics...")
 comp_stats <- run_comparative_stats(cleaned_df)
