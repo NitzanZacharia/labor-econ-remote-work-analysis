@@ -7,6 +7,13 @@
   `run_mismatch.R`. Every other .R file defines one function, lives in `scripts/`, and is
   `source()`d via a root-relative, path-qualified call (`source(file.path("scripts", "foo.R"))`) —
   never a bare filename, since cwd is assumed to be the repo root wherever sourcing happens.
+  `robustness/` is the one exception to "one function per file": it holds the multi-function
+  robustness-chain scripts (`balance_test.R`, `age_balance_robustness.R`, `phase2_robustness.R`,
+  `pretrend_wald_test.R`), sourced the same cwd-relative, path-qualified way
+  (`source(file.path("robustness", "foo.R"))`) — never moved into `scripts/`.
+- `data/` holds small, versioned external inputs the pipeline needs (currently just the Dingel &
+  Neiman teleworkability crosswalk, `data/israeli_cbs_wfh_2digit.csv`) — distinct from the raw CBS
+  microdata below, which is never checked into the repo.
 - Raw CBS CSVs are gitignored and live outside the repo (real path is set locally in main.R's
   `folder_path`). Never assume they're present in a sandbox; check before running Rscript against them.
 - `DEFAULT_CONTROLS <- c("MatzavMishpachti","Dat","GilNK","MachozMegurim","TeudaGvoha")`, defined
@@ -19,9 +26,10 @@
   it weights by `MishkalSofi` when aggregating occupation exposure up to demographic cells, which is
   internal to constructing the exposure regressor and not a survey-representativeness correction.
 - Before implementing anything, read: docs/ROADMAP.md (the checkpoint in question),
-  docs/LLD.md (schema/contracts), docs/HLD.md (why the gap exists), TESTING_BLUEPRINT.md
-  (how to test it). Don't implement from the research doc directly — LLD/HLD already reconcile
-  it against the real codebase.
+  docs/LLD.md (schema/contracts), docs/HLD.md (why the gap exists). Don't implement from the
+  research doc directly — LLD/HLD already reconcile it against the real codebase. For how to test
+  something, the live `tests/testthat/` suite is the source of truth — `docs/archive/TESTING_BLUEPRINT.md`
+  is a pre-`scripts/`-restructure planning doc, kept only for history.
 - Every change that touches a function used elsewhere (data_processing.R, the controls list)
   needs the full `Rscript run_tests.R` suite green before you consider the task done.
 - Never commit anything derived from real CBS microdata (cell counts, tables, plots) without a

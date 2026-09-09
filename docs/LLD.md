@@ -261,7 +261,7 @@ build_wfh_exposure_index(cleaned_df: tibble,
 # occupation_code, wfh_exposure, n. ref_year anchored to 2021, not the research doc's literal 2020
 # (excluded from this project's sample) -- see docs/decisions/checkpoint6-wfh-anchor-year.md.
 
-build_exposure_isco2(path: character(1) = "israeli_cbs_wfh_2digit.csv") -> tibble  # ISCO2, tele_ext
+build_exposure_isco2(path: character(1) = "data/israeli_cbs_wfh_2digit.csv") -> tibble  # ISCO2, tele_ext
 # Reads the external Dingel & Neiman teleworkability score. `path` exists so callers/tests can
 # point elsewhere; the default file isn't present in every environment.
 
@@ -302,7 +302,7 @@ run_ddd_regression(cleaned_df: tibble, exposure_index: tibble,
 # occupation-stratified basic_reg() runs.
 
 # ── israeli_market_mismatch.R ────────────────────────────────────────────────
-check_market_mismatch(cleaned_df: tibble, exposure_path: character(1) = "israeli_cbs_wfh_2digit.csv",
+check_market_mismatch(cleaned_df: tibble, exposure_path: character(1) = "data/israeli_cbs_wfh_2digit.csv",
                        ...) -> tibble
 # calibrate_isco_exposure()'s output plus israel_vs_us_gap, abs_mismatch; sorted desc(abs_mismatch).
 # Descriptive-only; not sourced by main.R (invoked via run_mismatch.R).

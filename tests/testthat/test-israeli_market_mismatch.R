@@ -65,7 +65,7 @@ test_that("check_market_mismatch passes ... through to calibrate_isco_exposure (
 })
 
 test_that("build_exposure_isco2's path parameter defaults to the real project data file", {
-  expect_equal(formals(build_exposure_isco2)$path, "israeli_cbs_wfh_2digit.csv")
+  expect_equal(eval(formals(build_exposure_isco2)$path), file.path("data", "israeli_cbs_wfh_2digit.csv"))
 })
 
 test_that("the run_mismatch.R sequence (build -> check -> write_csv) round-trips through a CSV intact", {

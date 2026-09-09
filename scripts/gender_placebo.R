@@ -86,7 +86,7 @@ run_gender_ddd_placebo <- function(cleaned_men, exposure_calibrated, controls = 
 }
 
 run_gender_placebo <- function(folder_path, cleaned_women = NULL, exposure_calibrated = NULL,
-                                exposure_csv_path = "israeli_cbs_wfh_2digit.csv") {
+                                exposure_csv_path = file.path("data", "israeli_cbs_wfh_2digit.csv")) {
   message("Loading data for men (sex_filter = 'men')...")
   cleaned_men <- load_and_clean_data(folder_path, sex_filter = "men")
 

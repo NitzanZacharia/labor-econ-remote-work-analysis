@@ -17,7 +17,7 @@
 library(tidyverse)
 library(fixest)
 source(file.path("scripts", "data_processing.R"))
-source("age_balance_robustness.R")
+source(file.path("robustness", "age_balance_robustness.R"))
 
 prepare_reweighted_ddd_df <- function(cleaned_df, exposure_cells, rake = NULL) {
   if (is.null(rake)) rake <- build_gilnk_rake_weights(cleaned_df, exposure_cells)

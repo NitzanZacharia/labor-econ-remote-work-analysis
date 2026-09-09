@@ -78,7 +78,7 @@ source("main.R"); basic_reg_comp(cleaned_df)
 source(file.path("scripts", "gender_placebo.R")); run_gender_placebo(folder_path)
 ```
 
-A third, fully separate script, `run_mismatch.R` (`Rscript run_mismatch.R`), runs a descriptive-only mismatch exhibit against a cached `cleaned_df.rds` — it requires `israeli_cbs_wfh_2digit.csv` at the repo root, which (like the raw CBS CSVs) is not included in this repo.
+A third, fully separate script, `run_mismatch.R` (`Rscript run_mismatch.R`), runs a descriptive-only mismatch exhibit against a cached `cleaned_df.rds` — it requires `data/israeli_cbs_wfh_2digit.csv`, which (unlike the raw CBS CSVs) *is* included in this repo.
 
 ### Tests
 
@@ -90,7 +90,7 @@ Runs the `testthat` suite in `tests/testthat/` (data processing, validation, sch
 
 ## Project structure
 
-`main.R`, `run_tests.R`, and `run_mismatch.R` are top-level entry-point scripts and stay at the repo root; every function-bearing file lives under `scripts/`.
+`main.R`, `run_tests.R`, and `run_mismatch.R` are top-level entry-point scripts and stay at the repo root; every single-function file lives under `scripts/`. `robustness/` holds the Phase 1b/1c/2 robustness-chain scripts for the primary DDD (`balance_test.R`, `age_balance_robustness.R`, `phase2_robustness.R`, `pretrend_wald_test.R`) — each defines several related functions, so they don't fit `scripts/`'s one-function-per-file convention; none are called by `main.R` by default, run them manually as needed. `data/` holds small, versioned external inputs the pipeline needs (currently just the Dingel & Neiman teleworkability crosswalk).
 
 | File | Function | Purpose |
 |---|---|---|
@@ -140,7 +140,7 @@ Runs the `testthat` suite in `tests/testthat/` (data processing, validation, sch
 
 ## Documentation map
 
-Before implementing anything, read (in this order): [`docs/ROADMAP.md`](docs/ROADMAP.md) (the checkpoint in question), [`docs/LLD.md`](docs/LLD.md) (schema/contracts), [`docs/HLD.md`](docs/HLD.md) (why the gap exists), [`TESTING_BLUEPRINT.md`](TESTING_BLUEPRINT.md) (how to test it). The original research plan (research question, literature review, and initial empirical design) has been folded into the "Background" and "Research design" sections above; `docs/LLD.md`/`docs/HLD.md` reconcile it against the real codebase and are the authoritative reference for any gap between plan and implementation.
+Before implementing anything, read (in this order): [`docs/ROADMAP.md`](docs/ROADMAP.md) (the checkpoint in question), [`docs/LLD.md`](docs/LLD.md) (schema/contracts), [`docs/HLD.md`](docs/HLD.md) (why the gap exists). For how to test something, `tests/testthat/` (run via `Rscript run_tests.R`) is the source of truth — [`docs/archive/TESTING_BLUEPRINT.md`](docs/archive/TESTING_BLUEPRINT.md) is an archived pre-restructure planning doc, kept for history only. The original research plan (research question, literature review, and initial empirical design) has been folded into the "Background" and "Research design" sections above; `docs/LLD.md`/`docs/HLD.md` reconcile it against the real codebase and are the authoritative reference for any gap between plan and implementation.
 
 ## License
 

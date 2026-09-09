@@ -1,5 +1,10 @@
 # Testing Blueprint
 
+> **Archived.** Written before the `scripts/` restructure and before the real test suite existed;
+> its proposed file layout and rollout order no longer match `tests/testthat/`. Superseded by the
+> live suite itself (`Rscript run_tests.R`) as the source of truth for test conventions. Kept for
+> historical reference only — not maintained going forward.
+
 This document is a blueprint for adding a test suite to this project. No tests exist yet. It's grounded in the current state of the 7 R files in this repo (`main.R`, `data_processing.R`, `comparative_statistics.R`, `basic_regression.R`, `basic_reg_compared_data.R`, `employment_by_child_age.R`, `Diagnostics.R`) rather than generic R testing advice.
 
 ## Why this matters here specifically

@@ -5,7 +5,7 @@ library(fixest)
 # project's real data file (not present in every environment -- a known, separately-tracked gap,
 # not something this default is meant to paper over); the parameter exists so callers -- and
 # tests -- can point at a different file without editing this function.
-build_exposure_isco2 <- function(path = "israeli_cbs_wfh_2digit.csv") {
+build_exposure_isco2 <- function(path = file.path("data", "israeli_cbs_wfh_2digit.csv")) {
   read_csv(path, show_col_types = FALSE) %>%
     transmute(ISCO2 = as.numeric(isco_2digit), tele_ext = wfh_probability_2d) %>%
     filter(!is.na(tele_ext))

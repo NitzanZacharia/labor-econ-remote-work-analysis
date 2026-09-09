@@ -1,5 +1,10 @@
 # Autonomous Run Plan — Claude Code CLI × `labor-econ-remote-work-analysis`
 
+> **Archived.** A bootstrap runbook for driving the (now-closed) `docs/ROADMAP.md` checkpoints;
+> describes several bugs and setup steps already fixed/completed, and its embedded
+> `.claude/settings.json` template isn't the real current config. Kept for historical reference
+> only — not maintained going forward.
+
 **Goal:** drive Claude Code (CLI) through `docs/ROADMAP.md`'s 10 checkpoints to close the gap between
 the current pipeline and the full empirical strategy in `motherhood_penalty_wfh_research.md`, while
 interleaving the test suite specified in `TESTING_BLUEPRINT.md`.

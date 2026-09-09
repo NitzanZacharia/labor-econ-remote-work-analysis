@@ -46,15 +46,13 @@ source(file.path("scripts", "Diagnostics.R"))
 source(file.path("scripts", "employment_by_child_age.R"))
 source(file.path("scripts", "validation.R"))
 
-# The 4 robustness-chain scripts below are deliberately NOT under scripts/ -- each defines several
+# The 4 robustness-chain scripts below live in robustness/, not scripts/ -- each defines several
 # related functions (a diagnostic + one or more regression specs sharing it), not the single
-# function per file convention scripts/ holds its 17 members to -- so they stay at the project
-# root alongside main.R, run_tests.R, and run_mismatch.R, and are sourced by bare (cwd-relative)
-# filename here, same as their own internal source() calls resolve while cwd == project_root.
-source("balance_test.R")
-source("age_balance_robustness.R")
-source("phase2_robustness.R")
-source("pretrend_wald_test.R")
+# function per file convention scripts/ holds its 17 members to.
+source(file.path("robustness", "balance_test.R"))
+source(file.path("robustness", "age_balance_robustness.R"))
+source(file.path("robustness", "phase2_robustness.R"))
+source(file.path("robustness", "pretrend_wald_test.R"))
 
 setwd(old_wd)
 

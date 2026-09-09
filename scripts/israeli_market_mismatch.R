@@ -8,7 +8,7 @@ source(file.path("scripts", "wfh_exposure_cells.R"))
 # is identical to the one that actually feeds the regression, rather than an independently-chosen
 # floor (this file previously used its own `filter(n > 50)`, main.R its own `min_n = 200`; the two
 # disagreed on which occupations were "well-powered enough to trust").
-check_market_mismatch <- function(cleaned_df, exposure_path = "israeli_cbs_wfh_2digit.csv", ...) {
+check_market_mismatch <- function(cleaned_df, exposure_path = file.path("data", "israeli_cbs_wfh_2digit.csv"), ...) {
   message("Calculating theoretical vs. actual WFH mismatch (2022-2023 average)...")
 
   dn_theoretical <- build_exposure_isco2(path = exposure_path)

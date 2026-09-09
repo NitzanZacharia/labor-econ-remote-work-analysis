@@ -2,7 +2,7 @@
 
 Sequential, actionable checkpoints from the current codebase to the full empirical strategy in [`motherhood_penalty_wfh_research.md`](../motherhood_penalty_wfh_research.md), built on the gap analysis and proposed signatures in [`docs/LLD.md`](LLD.md). Each checkpoint is meant to be implemented and verified independently, in order — later checkpoints depend on earlier ones being done first (dependencies noted per checkpoint).
 
-Not covered here: general test-suite construction (unit/integration tests for the *existing* functions) — that's already specified separately in [`TESTING_BLUEPRINT.md`](../TESTING_BLUEPRINT.md) and can proceed in parallel with this roadmap rather than blocking it.
+Not covered here: general test-suite construction (unit/integration tests for the *existing* functions) — the live `tests/testthat/` suite (run via `Rscript run_tests.R`) is the source of truth for that; [`archive/TESTING_BLUEPRINT.md`](archive/TESTING_BLUEPRINT.md) is the original (now superseded) planning doc, kept for history.
 
 ---
 

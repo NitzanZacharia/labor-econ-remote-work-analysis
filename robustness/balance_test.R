@@ -15,7 +15,7 @@ source(file.path("scripts", "wfh_exposure_cells.R"))
 
 run_balance_test <- function(cleaned_df, controls = DEFAULT_CONTROLS,
                               exposure_cells = NULL, exposure_calibrated = NULL,
-                              exposure_csv_path = "israeli_cbs_wfh_2digit.csv") {
+                              exposure_csv_path = file.path("data", "israeli_cbs_wfh_2digit.csv")) {
 
   # Reuse whatever the caller already has -- main.R's own exposure_cells/exposure_calibrated --
   # rather than always rebuilding from the raw CSV; only fall back to a fresh build (and only then
