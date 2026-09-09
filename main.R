@@ -108,6 +108,33 @@ dev.off()
 # docs/decisions/calibrated-exposure-and-cell-ddd.md for the full argument.
 message("Building the WFH-exposure measures...")
 
+# calibrate_isco_exposure()/build_wfh_exposure_index()/build_exposure_cells() below must NOT be
+# built from cleaned_df alone: cleaned_df is the exact women-25-59 analysis sample that later
+# populates the primary DDD as Mother/Post/Employed, and wfh_exposure_index.R's own header comment
+# already warns against exactly this ("passing the analysis sample builds the third difference out
+# of the same people who enter the regression -- prefer a frame that excludes them, or at minimum
+# covers all workers"). build_exposure_cells() already stratifies by Min (sex) as a cell variable
+# (its first parameter is even named raw_all), so adding men doesn't change its women-cell output
+# at all -- but calibrate_isco_exposure()/build_wfh_exposure_index() aggregate by occupation only,
+# with no sex conditioning, so adding men's realized WFH behavior to the pool genuinely breaks the
+# mechanical link between "this occupation's exposure score" and "the exact population the DDD
+# studies."
+message("Loading men's data (sex_filter = 'men') so exposure construction isn't built from the ",
+        "exact women-25-59 analysis sample (see wfh_exposure_index.R's header comment)...")
+rds_file_path_men   <- paste0(folder_path, "/cleaned_df_men.rds")
+cache_meta_path_men <- paste0(rds_file_path_men, ".meta.rds")
+cache_is_valid_men <- file.exists(rds_file_path_men) && file.exists(cache_meta_path_men) &&
+  identical(readRDS(cache_meta_path_men)$data_processing_hash, data_processing_hash)
+if (cache_is_valid_men) {
+  message("Found saved RDS file for men (data_processing.R unchanged) — loading pre-cleaned data...")
+  cleaned_men_for_exposure <- readRDS(rds_file_path_men)
+} else {
+  cleaned_men_for_exposure <- load_and_clean_data(folder_path, sex_filter = "men")
+  saveRDS(cleaned_men_for_exposure, file = rds_file_path_men)
+  saveRDS(list(data_processing_hash = data_processing_hash), file = cache_meta_path_men)
+}
+exposure_population_df <- bind_rows(cleaned_df, cleaned_men_for_exposure)
+
 # (a) External, exogenous teleworkability (Dingel & Neiman via O*NET/SOC->ISCO crosswalk).
 # Pre-period by construction, immune to Israel's own COVID-era WFH behavior -- but a US-task-based
 # measure, so it misclassifies occupations where Israeli institutional practice diverges sharply
@@ -121,7 +148,7 @@ exposure_external <- build_exposure_isco2()
 # own documentation in wfh_exposure_cells.R for why). Still draws on 2022-23 realized data, which
 # sits inside the post-period, so this is a documented compromise, not a fully pre-treatment
 # measure -- report (c)/(d) alongside it so the paper shows whether conclusions depend on it.
-exposure_calibrated <- calibrate_isco_exposure(cleaned_df, exposure_external)
+exposure_calibrated <- calibrate_isco_exposure(exposure_population_df, exposure_external)
 message(sprintf(
   "  calibration swapped %d of %d occupations for realized Israeli values (gap > 0.5, statistically distinguishable from sampling noise at 95%% confidence):",
   sum(exposure_calibrated$swap), nrow(exposure_calibrated)
@@ -142,7 +169,7 @@ isco_masking_check <- check_isco_masking_sensitivity(cleaned_df)
 # docs/decisions/checkpoint6-wfh-anchor-year.md. Post-treatment by construction -- a robustness
 # check, not a substitute for (a)/(b). min_n = 200 drops occupations too thin to trust (without a
 # floor, a 4-observation cell can dominate the ranking -- see ISCO 63 above).
-exposure_realized <- build_wfh_exposure_index(cleaned_df, ref_year = 2021, min_n = 200)
+exposure_realized <- build_wfh_exposure_index(exposure_population_df, ref_year = 2021, min_n = 200)
 
 # (d) Pre-period (2017-2019) shift-share exposure by demographic cell (sex x age x education x
 # district), built from the calibrated occupation-level score (b). Unlike (a)-(c), this is defined
@@ -150,7 +177,7 @@ exposure_realized <- build_wfh_exposure_index(cleaned_df, ref_year = 2021, min_n
 # four that doesn't condition the third difference on Employed, the regression's own outcome. This
 # is the primary exposure measure for the causal DDD.
 exposure_cells <- build_exposure_cells(
-  cleaned_df,
+  exposure_population_df,
   exposure_calibrated %>% select(ISCO2, tele_ext = wfh_exposure_calibrated)
 )
 
@@ -175,16 +202,27 @@ cell_fe_vars    <- c("GilNK", "TeudaGvoha", "MachozMegurim")  # matches build_ex
                                                                # cell_vars, minus the constant Min
 other_controls  <- setdiff(DEFAULT_CONTROLS, cell_fe_vars)
 
+# WFH_Exposure is constant within a (GilNK, TeudaGvoha, MachozMegurim) cell (<=210 distinct cells),
+# not at the individual level -- clustering at IDPUF here understates the true SE on
+# WFH_Exposure/Mother:WFH_Exposure/Post:WFH_Exposure/Mother:Post:WFH_Exposure (a classic Moulton
+# problem: errors are correlated within a cell via the shared exposure value and shared unobserved
+# cell shocks, and individual-level clustering doesn't see that correlation at all). Clustering on
+# the cell itself is the correct level for a shift-share regressor assigned at that granularity.
+# ~210 clusters is above the usual >=40-50 rule of thumb for asymptotic cluster-robust inference,
+# but still not large -- a small-cluster correction (e.g. wild-cluster bootstrap via fwildclusterboot)
+# would need a new dependency and is flagged separately rather than added here.
+cell_cluster_formula <- as.formula(paste("~", paste(cell_fe_vars, collapse = "^")))
+
 ddd_primary_additive <- feols(
   as.formula(paste("Employed ~ Mother * Post * WFH_Exposure +",
                     paste(DEFAULT_CONTROLS, collapse = " + "))),
-  data = ddd_df, cluster = ~IDPUF
+  data = ddd_df, cluster = cell_cluster_formula
 )
 ddd_primary_fe <- feols(
   as.formula(paste("Employed ~ Mother * Post * WFH_Exposure +",
                     paste(other_controls, collapse = " + "),
                     "|", paste(cell_fe_vars, collapse = "^"))),
-  data = ddd_df, cluster = ~IDPUF
+  data = ddd_df, cluster = cell_cluster_formula
 )
 primary_ddd_table <- etable(
   ddd_primary_additive, ddd_primary_fe,

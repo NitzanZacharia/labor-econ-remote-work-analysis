@@ -87,11 +87,12 @@ test_that("the WFH-exposure + primary DDD pipeline (main.R's section 8) runs end
 
   cell_fe_vars   <- c("GilNK", "TeudaGvoha", "MachozMegurim")
   other_controls <- setdiff(DEFAULT_CONTROLS, cell_fe_vars)
+  cell_cluster_formula <- as.formula(paste("~", paste(cell_fe_vars, collapse = "^")))
 
   ddd_primary_additive <- suppressWarnings(feols(
     as.formula(paste("Employed ~ Mother * Post * WFH_Exposure +",
                       paste(DEFAULT_CONTROLS, collapse = " + "))),
-    data = ddd_df, cluster = ~IDPUF
+    data = ddd_df, cluster = cell_cluster_formula
   ))
   expect_s3_class(ddd_primary_additive, "fixest")
 
@@ -110,7 +111,7 @@ test_that("the WFH-exposure + primary DDD pipeline (main.R's section 8) runs end
       as.formula(paste("Employed ~ Mother * Post * WFH_Exposure +",
                         paste(other_controls, collapse = " + "),
                         "|", paste(cell_fe_vars, collapse = "^"))),
-      data = ddd_df, cluster = ~IDPUF
+      data = ddd_df, cluster = cell_cluster_formula
     )),
     error = function(e) NULL
   )

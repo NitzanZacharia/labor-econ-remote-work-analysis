@@ -81,3 +81,16 @@ This is a real methodological choice, not just an implementation detail — the 
 wide if excess selection is large in the real data, and the direction-only limitation above means a
 finding of "no excess selection" in the real data should be read as "this construction found
 nothing to correct," not as proof the selection concern doesn't exist.
+
+## Addendum (2026-09-09): confidence intervals
+
+The original implementation returned only bare point estimates for `lower`/`point`/`upper`, with no
+way to judge whether the true effect was statistically distinguishable from zero, and treated
+`trim_prop` as a fixed, known constant despite it being estimated from `s00`/`s01`/`s10`/`s11`.
+`run_intensive_margin_lee_bounds()` now also returns, per bound, `se`/`ci_low`/`ci_high` (each
+trimmed regression's own cluster-robust SE on `Mother:Post`), and separately an
+`imbens_manski_ci` — the standard Imbens & Manski (2004) confidence interval for a partially
+identified parameter, which widens the naive `[lower, upper]` range by an amount `c_alpha` (solved
+numerically) that accounts for both endpoints' sampling uncertainty jointly, not just each
+regression's own SE in isolation. This collapses to the ordinary `+-1.96*se` interval when there is
+no excess selection to trim (lower/point/upper coincide).

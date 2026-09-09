@@ -60,17 +60,18 @@ make_ddd_panel <- function(delta = -2) {
 fit_primary_ddd <- function(ddd_df) {
   cell_fe_vars   <- c("GilNK", "TeudaGvoha", "MachozMegurim")
   other_controls <- setdiff(DEFAULT_CONTROLS, cell_fe_vars)
+  cell_cluster_formula <- as.formula(paste("~", paste(cell_fe_vars, collapse = "^")))
 
   additive <- suppressWarnings(feols(
     as.formula(paste("Employed ~ Mother * Post * WFH_Exposure +",
                       paste(DEFAULT_CONTROLS, collapse = " + "))),
-    data = ddd_df, cluster = ~IDPUF
+    data = ddd_df, cluster = cell_cluster_formula
   ))
   fe <- suppressWarnings(feols(
     as.formula(paste("Employed ~ Mother * Post * WFH_Exposure +",
                       paste(other_controls, collapse = " + "),
                       "|", paste(cell_fe_vars, collapse = "^"))),
-    data = ddd_df, cluster = ~IDPUF
+    data = ddd_df, cluster = cell_cluster_formula
   ))
   list(additive = additive, fe = fe, cell_fe_vars = cell_fe_vars, other_controls = other_controls)
 }

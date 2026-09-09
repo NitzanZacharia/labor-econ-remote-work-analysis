@@ -23,7 +23,12 @@ run_ddd_regression <- function(cleaned_df, exposure_index, controls = DEFAULT_CO
     sep = " + "
   )
   formula_ddd <- as.formula(paste("Employed ~", rhs_ddd))
-  reg_ddd <- feols(formula_ddd, data = df_ddd, cluster = ~IDPUF)
+  # WFH_Exposure is assigned at the occupation level (~40 ISCO-2 groups), not the individual --
+  # clustering at IDPUF understates the SE on every WFH_Exposure interaction (a Moulton problem:
+  # errors correlated within an occupation via the shared exposure value aren't seen by
+  # individual-level clustering). Cluster on the occupation code instead, the level the regressor
+  # of interest actually varies at.
+  reg_ddd <- feols(formula_ddd, data = df_ddd, cluster = ~MishlachYad_ISCO_08_2)
 
   table_ddd <- etable(reg_ddd, headers = c("Employed (DDD)"), digits = 4)
   print(table_ddd)

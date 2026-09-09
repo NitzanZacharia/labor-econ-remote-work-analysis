@@ -57,11 +57,17 @@ run_gender_ddd_placebo <- function(cleaned_men, exposure_calibrated, controls = 
   # (the same class of failure wfh_exposure_cells.R's calibrate_isco_exposure() already documents
   # for ISCO 63). Caught explicitly and reported per-spec rather than letting one bad spec take
   # down the whole function.
+  #
+  # Clustered on the same (GilNK, TeudaGvoha, MachozMegurim) cell as main.R's primary DDD, not
+  # IDPUF: WFH_Exposure here is cell-constant (from build_exposure_cells()), so individual-level
+  # clustering would understate the SE the same way it would in the primary spec -- this placebo
+  # is supposed to mirror main.R's spec structure exactly (see header comment above).
+  cluster_formula <- as.formula(paste("~", paste(cell_fe_vars, collapse = "^")))
   fit <- function(formula_rhs, fe = NULL) {
     tryCatch({
       f <- if (is.null(fe)) as.formula(paste("Employed ~", formula_rhs))
            else as.formula(paste("Employed ~", formula_rhs, "|", fe))
-      feols(f, data = ddd_df_men, cluster = ~IDPUF, notes = FALSE)
+      feols(f, data = ddd_df_men, cluster = cluster_formula, notes = FALSE)
     }, error = function(e) {
       message("run_gender_ddd_placebo: model fit failed (", conditionMessage(e), ") -- likely too ",
               "few matched/identified observations for this formula. Returning NULL for this spec.")
