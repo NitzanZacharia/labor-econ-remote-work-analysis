@@ -67,3 +67,34 @@ test_that("check_market_mismatch passes ... through to calibrate_isco_exposure (
 test_that("build_exposure_isco2's path parameter defaults to the real project data file", {
   expect_equal(formals(build_exposure_isco2)$path, "israeli_cbs_wfh_2digit.csv")
 })
+
+test_that("the run_mismatch.R sequence (build -> check -> write_csv) round-trips through a CSV intact", {
+  # run_mismatch.R itself hardcodes readRDS("csvs/cleaned_df.rds") and a fixed output path, so
+  # (like test-pipeline_smoke.R does for main.R) it's mirrored here rather than sourced directly:
+  # a tempfile stands in for both the exposure crosswalk and the write_csv() destination.
+  tmp_csv <- tempfile(fileext = ".csv")
+  on.exit(unlink(tmp_csv), add = TRUE)
+  readr::write_csv(
+    tibble::tibble(isco_2digit = c(100, 200), wfh_probability_2d = c(0.1, 0.5)),
+    tmp_csv
+  )
+  synth <- dplyr::bind_rows(
+    make_mismatch_occ(100, 0,    450),
+    make_mismatch_occ(200, 1000, 300)
+  )
+
+  out <- capture.output(mismatch_table <- suppressWarnings(
+    check_market_mismatch(synth, exposure_path = tmp_csv)
+  ))
+
+  out_csv <- tempfile(fileext = ".csv")
+  on.exit(unlink(out_csv), add = TRUE)
+  readr::write_csv(mismatch_table, out_csv)
+  reloaded <- readr::read_csv(out_csv, show_col_types = FALSE)
+
+  expect_equal(nrow(reloaded), nrow(mismatch_table))
+  expect_true(all(c(
+    "ISCO2", "tele_ext", "realized_wfh", "gap", "swap",
+    "wfh_exposure_calibrated", "israel_vs_us_gap", "abs_mismatch"
+  ) %in% names(reloaded)))
+})
