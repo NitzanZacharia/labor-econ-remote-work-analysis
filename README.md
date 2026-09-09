@@ -31,7 +31,9 @@ $$Y_{it} = \beta_0 + \beta_1 \cdot \text{Mother}_i + \beta_2 \cdot \text{Post}_t
 The baseline employment regression is estimated on the full pooled sample and separately for Jewish and Arab women (`Leom == 1` / `Leom == 2`), to check whether the effect differs by population group.
 
 Beyond the baseline, the project implements a fuller empirical strategy, tracked checkpoint-by-checkpoint in [`docs/ROADMAP.md`](docs/ROADMAP.md):
-- an **intensive-margin** regression on usual weekly work hours (conditional on employment),
+- an **intensive-margin** regression on usual weekly work hours (conditional on employment), plus
+  a Lee (2009) trimming-bounds correction (`intensive_margin_lee_bounds.R`) for the selection risk
+  that conditioning on employment introduces (see `docs/decisions/intensive-margin-lee-bounds.md`),
 - a **gender placebo** test (fathers vs. childless men) to check the effect is motherhood-specific rather than a general parenthood/macro shift — an insignificant β₃ here supports the motherhood-specific reading,
 - an occupation-level **WFH-exposure index** and a **triple-differences (DDD) mechanism regression** (`Employed ~ Mother×Post×WFH_Exposure`) testing whether the narrowing penalty is actually driven by an occupation's remote-work exposure, cross-referenced against literature anchors (Bloom; Cohen & Manor 2024),
 - a robustness check comparing the full sample against `Muasak`-observed-only rows,
@@ -100,6 +102,7 @@ Runs the `testthat` suite in `tests/testthat/` (data processing, validation, sch
 | `basic_regression.R` | `basic_reg()` | Primary DiD regression: `Employed ~ Mother + Post + Mother:Post + controls`, clustered by `IDPUF`. |
 | `basic_reg_compared_data.R` | `basic_reg_comp()` | Robustness check comparing the full sample against `Muasak`-observed-only rows. Defined but **not called by default** from `main.R` — run manually if needed. |
 | `intensive_margin_regression.R` | `run_intensive_margin_reg()` | Intensive-margin counterpart to `basic_reg()`: `WorkHoursCont ~ Mother + Post + Mother:Post + controls`, estimated on `Employed == 1` only. |
+| `intensive_margin_lee_bounds.R` | `run_intensive_margin_lee_bounds()` | Lee (2009) trimming-bounds correction for the above: since `Employed` is itself a DiD outcome, conditioning the hours regression on `Employed == 1` risks selection bias if WFH differentially pulls marginal mothers into work post-2021. Reports a `[lower, upper]` bound on `Mother:Post` alongside the untrimmed point estimate — see `docs/decisions/intensive-margin-lee-bounds.md`. |
 | `gender_placebo.R` | `run_gender_placebo()` | Loads/validates the male subsample and reruns `basic_reg()` on it (fathers vs. childless men), as a placebo for the motherhood-specific interpretation. Sourced by `main.R` but **not called by default**. |
 | `wfh_exposure_index.R` | `build_wfh_exposure_index()` | Occupation-level (ISCO-08) WFH-exposure index, anchored to 2021 (see `docs/decisions/checkpoint6-wfh-anchor-year.md`). Not sourced by `main.R`; run manually. |
 | `ddd_regression.R` | `run_ddd_regression()` | Triple-differences mechanism test: joins the exposure index onto the sample and estimates `Employed ~ Mother*Post*WFH_Exposure + controls`, plus a second-stage regression of per-occupation `Mother:Post` estimates on exposure. Depends on `wfh_exposure_index.R`; not sourced by `main.R`. |

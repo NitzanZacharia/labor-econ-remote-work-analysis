@@ -119,3 +119,50 @@ test_that("validate_cleaned_df does not warn on WFH at a real-data-typical ~64% 
   df$WFH[1:64] <- NA
   expect_no_warning(validate_cleaned_df(df))
 })
+
+# ── check_idpuf_panel_structure ──────────────────────────────────────────────
+
+test_that("check_idpuf_panel_structure counts distinct IDPUF and reports 0 repetition when every IDPUF is unique", {
+  df <- tibble::tibble(
+    IDPUF      = 1:10,
+    ShnatSeker = rep(c(2019, 2022), length.out = 10),
+    Post       = rep(c(0, 1), length.out = 10)
+  )
+  out <- suppressMessages(check_idpuf_panel_structure(df))
+
+  expect_equal(out$n_idpuf, 10)
+  expect_equal(out$multi_year_n, 0)
+  expect_equal(out$cross_period_n, 0)
+})
+
+test_that("check_idpuf_panel_structure detects an IDPUF repeating within one year (same ShnatSeker, same Post)", {
+  df <- tibble::tibble(
+    IDPUF      = c(1, 1, 2, 3),
+    ShnatSeker = c(2019, 2019, 2019, 2022),
+    Post       = c(0, 0, 0, 1)
+  )
+  out <- suppressMessages(check_idpuf_panel_structure(df))
+
+  expect_equal(out$n_idpuf, 3)
+  expect_equal(out$multi_year_n, 0)    # IDPUF 1 repeats, but within the same ShnatSeker
+  expect_equal(out$cross_period_n, 0)  # and within the same Post value
+})
+
+test_that("check_idpuf_panel_structure detects an IDPUF spanning both Post==0 and Post==1", {
+  df <- tibble::tibble(
+    IDPUF      = c(1, 1, 2, 3),
+    ShnatSeker = c(2019, 2022, 2019, 2022),
+    Post       = c(0, 1, 0, 1)
+  )
+  out <- suppressMessages(check_idpuf_panel_structure(df))
+
+  expect_equal(out$n_idpuf, 3)
+  expect_equal(out$multi_year_n, 1)    # IDPUF 1: 2019 and 2022
+  expect_equal(out$cross_period_n, 1)  # IDPUF 1: Post 0 and Post 1
+  expect_true(1 %in% out$idpuf_periods$IDPUF[out$idpuf_periods$n_periods > 1])
+})
+
+test_that("check_idpuf_panel_structure emits a message summarizing the counts", {
+  df <- tibble::tibble(IDPUF = c(1, 1, 2), ShnatSeker = c(2019, 2022, 2019), Post = c(0, 1, 0))
+  expect_message(check_idpuf_panel_structure(df), "distinct IDPUF")
+})

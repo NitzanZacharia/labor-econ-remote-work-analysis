@@ -10,6 +10,7 @@ source("Diagnostics.R")
 source("employment_by_child_age.R")
 source("validation.R")
 source("intensive_margin_regression.R")
+source("intensive_margin_lee_bounds.R")
 source("gender_placebo.R")
 source("export_results.R")
 
@@ -53,6 +54,9 @@ if (cache_is_valid) {
 message("Validating cleaned data...")
 validate_cleaned_df(cleaned_df)
 
+message("Checking IDPUF panel structure (cluster-SE unit vs. Mother/Post design)...")
+idpuf_panel_check <- check_idpuf_panel_structure(cleaned_df)
+
 # ── 4. Comparative statistics ─────────────────────────────────────────────────
 message("Running comparative statistics...")
 comp_stats <- run_comparative_stats(cleaned_df)
@@ -69,6 +73,9 @@ baseline_arab <- basic_reg(filter(cleaned_df, Leom == 2))
 
 message("Running intensive-margin (work hours) regression...")
 intensive_results <- run_intensive_margin_reg(cleaned_df)
+
+message("Running intensive-margin Lee (2009) trimming bounds (selection-on-employment correction)...")
+intensive_lee_bounds <- run_intensive_margin_lee_bounds(cleaned_df)
 
 # ── 6. Run descriptive stats ────────────────────────────────────────────────────────
 message("Running employment_by_child_age...")
@@ -90,6 +97,7 @@ export_all_results(list(
   basic_reg_jewish        = baseline_jewish,
   basic_reg_arab          = baseline_arab,
   intensive_margin        = intensive_results,
+  intensive_margin_lee_bounds = intensive_lee_bounds,
   employment_by_child_age = emp_res,
   diagnostics             = diagnostics_results
 ))

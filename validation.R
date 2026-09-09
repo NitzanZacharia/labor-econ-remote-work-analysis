@@ -86,6 +86,50 @@ validate_cleaned_df <- function(cleaned_df, sex_filter = c("women", "men")) {
   invisible(TRUE)
 }
 
+# Characterizes how much IDPUF (the individual identifier every regression in this repo clusters
+# standard errors by) repeats across ShnatSeker years, and specifically across the Mother/Post
+# design's Post==0/Post==1 divide. This is a reporting function, not a hard/soft-fail gate --
+# CBS's rotating LFS panel design means some repetition is expected (confirmed directly in
+# wfh_exposure_cells.R: a single IDPUF can carry 4 rows within one year alone). Clustering by
+# IDPUF correctly absorbs within-person correlation in the *errors*, but that's a separate question
+# from whether the same person is contributing rows to *both* sides of the Mother/Post design --
+# if a meaningful share of IDPUFs do, the "pre" and "post" samples are not fully independent draws
+# of distinct people, which matters for how Mother's/Post's identifying variation should be
+# interpreted and has never previously been measured in this codebase.
+check_idpuf_panel_structure <- function(cleaned_df) {
+  n_idpuf <- n_distinct(cleaned_df$IDPUF)
+
+  years_per_idpuf <- cleaned_df %>%
+    distinct(IDPUF, ShnatSeker) %>%
+    count(IDPUF, name = "n_years")
+  multi_year_n <- sum(years_per_idpuf$n_years > 1)
+
+  periods_per_idpuf <- cleaned_df %>%
+    distinct(IDPUF, Post) %>%
+    count(IDPUF, name = "n_periods")
+  cross_period_n <- sum(periods_per_idpuf$n_periods > 1)
+
+  message(sprintf(
+    paste0(
+      "check_idpuf_panel_structure: %d distinct IDPUF in cleaned_df.\n",
+      "  %d (%.2f%%) appear in more than one ShnatSeker year.\n",
+      "  %d (%.2f%%) appear in BOTH Post==0 (2017-2019) and Post==1 (2021-2023) rows -- ",
+      "the same individual contributing to both sides of the Mother/Post design."
+    ),
+    n_idpuf,
+    multi_year_n, 100 * multi_year_n / n_idpuf,
+    cross_period_n, 100 * cross_period_n / n_idpuf
+  ))
+
+  invisible(list(
+    n_idpuf        = n_idpuf,
+    multi_year_n   = multi_year_n,
+    cross_period_n = cross_period_n,
+    idpuf_years    = years_per_idpuf,
+    idpuf_periods  = periods_per_idpuf
+  ))
+}
+
 # Guards the 5 remaining positional range-drops in data_processing.R's load_and_clean_data() (e.g.
 # -(RamatDat:BituachLeumi)), which depend on the raw CSV's column *order*, not names. If a future
 # CBS data release reorders or inserts a column, those ranges could silently start dropping (or
