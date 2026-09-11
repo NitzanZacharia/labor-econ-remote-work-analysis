@@ -14,3 +14,13 @@
 # requirement: per CLAUDE.md, nothing under outputs/ gets `git add`ed/committed without a human
 # first explicitly reviewing it for disclosure risk. See docs/ROADMAP.md Checkpoint 9.
 !outputs/**
+
+# Local-only onboarding note (docs/ONBOARDING.md) -- not part of the tracked documentation set.
+docs/ONBOARDING.md
+
+# Every csvs/*.rds and results/*.rds here (cleaned-data caches, and Phase 1/2 robustness/DDD
+# result dumps) is derived from real CBS microdata and is regenerable by a committed script
+# (main.R, run_gilnk_comparison.R, run_mishkalsofi_check.R, run_baseline_ddd_women.R,
+# run_phase1a_gender_placebo.R, run_phase1b_balance_test.R, run_phase1c_pretrend_wald.R,
+# run_age_balance_robustness.R, run_phase2_robustness.R) -- commit the script, not the blob.
+*.rds
