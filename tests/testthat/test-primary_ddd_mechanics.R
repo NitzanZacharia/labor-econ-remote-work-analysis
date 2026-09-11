@@ -115,3 +115,74 @@ test_that("Spec 2 (interacted cell FE) recovers the same sign, and fixest drops 
   # cell_fe_vars are absorbed into the FE, not left as bare regressors.
   expect_false(any(models$cell_fe_vars %in% fe_coefs))
 })
+
+# ── Finer exposure-cell design (docs/decisions/exposure-cell-granularity-fix.md) ─────────────────
+# main.R's real primary DDD now builds WFH_Exposure on a partition (exposure_cell_vars) FINER than
+# cell_fe_vars -- it additionally varies by MatzavMishpachti -- specifically so it is no longer
+# exactly collinear with Spec 2's fully interacted cell FE (verified against real data: the fix
+# cuts the design's minimum detectable effect by ~37%). This panel mirrors that real design
+# (unlike make_ddd_panel() above, which deliberately keeps exposure_cell_vars == cell_fe_vars to
+# document the OLD aliasing mechanism) and asserts the opposite drop behavior.
+
+make_ddd_panel_finer_exposure <- function(delta = -2) {
+  cells <- expand.grid(
+    gilnk = 3:4, moch = 1:2, teuda = c("X", "Y"), mmish = c("A", "B"),
+    KEEP.OUT.ATTRS = FALSE, stringsAsFactors = FALSE
+  )
+  exposure_cell_vars <- c("Min", "GilNK", "TeudaGvoha", "MachozMegurim", "MatzavMishpachti")
+
+  # One distinct occupation per (GilNK,TeudaGvoha,MachozMegurim,MatzavMishpachti) combination, so
+  # build_exposure_cells() gives each of these finer cells a different WFH_Exposure -- including
+  # cells that share the same (GilNK,TeudaGvoha,MachozMegurim) triple but differ on
+  # MatzavMishpachti, which is exactly the within-FE-cell variation the real fix relies on.
+  pre <- purrr::pmap_dfr(cells, function(gilnk, moch, teuda, mmish) {
+    tibble::tibble(
+      ShnatSeker = 2018, Muasak = 1, Min = 2,
+      GilNK = gilnk, TeudaGvoha = teuda, MachozMegurim = moch, MatzavMishpachti = mmish,
+      MishlachYad_ISCO_08_2 = 300 + gilnk * 10 + moch * 3 + match(teuda, c("X", "Y")) * 5 +
+        match(mmish, c("A", "B")),
+      MishkalSofi = 1
+    )
+  })
+  dn <- pre %>%
+    dplyr::distinct(MishlachYad_ISCO_08_2) %>%
+    dplyr::mutate(tele_ext = seq(0.1, 0.9, length.out = dplyr::n())) %>%
+    dplyr::rename(ISCO2 = MishlachYad_ISCO_08_2)
+
+  exposure_cells <- build_exposure_cells(pre, dn, cell_vars = exposure_cell_vars)
+
+  make_block <- function(gilnk, moch, teuda, mmish) {
+    tibble::tibble(
+      Min = 2, GilNK = gilnk, TeudaGvoha = teuda, MachozMegurim = moch,
+      MatzavMishpachti = factor(mmish, levels = c("A", "B")),
+      Dat    = factor(rep(c("A", "B", "B", "A"), length.out = 20)),
+      Mother = rep(c(0, 1, 0, 1), length.out = 20),
+      Post   = rep(c(0, 0, 1, 1), length.out = 20)
+    )
+  }
+  panel <- purrr::pmap_dfr(cells, function(gilnk, moch, teuda, mmish) make_block(gilnk, moch, teuda, mmish))
+
+  panel %>%
+    dplyr::left_join(exposure_cells, by = exposure_cell_vars) %>%
+    dplyr::mutate(
+      p = plogis(-0.2 + 0.3 * Mother + 0.2 * Post + delta * Mother * Post * WFH_Exposure),
+      Employed = rbinom(dplyr::n(), 1, p),
+      IDPUF = dplyr::row_number()
+    )
+}
+
+test_that("Spec 2 no longer drops WFH_Exposure's main effect when exposure cells are finer than the FE", {
+  set.seed(99)
+  panel  <- make_ddd_panel_finer_exposure(delta = -2)
+  models <- fit_primary_ddd(panel)
+
+  expect_s3_class(models$fe, "fixest")
+  fe_coefs <- names(coef(models$fe))
+
+  # WFH_Exposure now varies WITHIN a (GilNK,TeudaGvoha,MachozMegurim) FE cell (across
+  # MatzavMishpachti categories), so it's no longer exactly collinear with the FE -- unlike the
+  # matching-granularity test above, its bare main effect should SURVIVE here.
+  expect_true("WFH_Exposure" %in% fe_coefs)
+  expect_true("Mother:Post:WFH_Exposure" %in% fe_coefs)
+  expect_lt(unname(coef(models$fe)["Mother:Post:WFH_Exposure"]), 0)
+})

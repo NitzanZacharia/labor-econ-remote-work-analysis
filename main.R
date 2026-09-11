@@ -173,46 +173,65 @@ isco_masking_check <- check_isco_masking_sensitivity(cleaned_df)
 # floor, a 4-observation cell can dominate the ranking -- see ISCO 63 above).
 exposure_realized <- build_wfh_exposure_index(exposure_population_df, ref_year = 2021, min_n = 200)
 
-# (d) Pre-period (2017-2019) shift-share exposure by demographic cell (sex x age x education x
-# district), built from the calibrated occupation-level score (b). Unlike (a)-(c), this is defined
-# for every row of cleaned_df -- employed and non-employed alike -- so it's the only one of the
-# four that doesn't condition the third difference on Employed, the regression's own outcome. This
-# is the primary exposure measure for the causal DDD.
+# (d) Pre-period (2017-2019) shift-share exposure by demographic cell, built from the calibrated
+# occupation-level score (b). Unlike (a)-(c), this is defined for every row of cleaned_df --
+# employed and non-employed alike -- so it's the only one of the four that doesn't condition the
+# third difference on Employed, the regression's own outcome. This is the primary exposure measure
+# for the causal DDD.
+#
+# exposure_cell_vars is DELIBERATELY FINER than cell_fe_vars below (adds MatzavMishpachti, Dat --
+# both already DEFAULT_CONTROLS, both pre-period demographic variables observed for everyone
+# regardless of employment status, so adding them doesn't reintroduce occupation-level exposure's
+# employment-conditioning problem). See docs/decisions/null-vs-power-audit.md for why this matters:
+# when the exposure measure was built on EXACTLY cell_fe_vars (the old design), it was collinear
+# enough with its own controls/FE that the primary DDD's minimum detectable effect for
+# Mother:Post:WFH_Exposure was ~51% of the baseline employment rate -- roughly 4x the actual point
+# estimate, meaning the null result was uninformative, not evidence of a true null. Verified against
+# real data (docs/decisions/exposure-cell-granularity-fix.md): adding MatzavMishpachti+Dat to the
+# exposure cell definition, while leaving cell_fe_vars/controls unchanged, cuts the MDE by ~37% by
+# restoring within-FE-cell variation in WFH_Exposure, with negligible cell-size cost (4,580 cells,
+# only 2 below n=100).
+exposure_cell_vars <- c("Min", "GilNK", "TeudaGvoha", "MachozMegurim", "MatzavMishpachti", "Dat")
 exposure_cells <- build_exposure_cells(
   exposure_population_df,
-  exposure_calibrated %>% select(ISCO2, tele_ext = wfh_exposure_calibrated)
+  exposure_calibrated %>% select(ISCO2, tele_ext = wfh_exposure_calibrated),
+  cell_vars = exposure_cell_vars
 )
 
 # ── 8a. Primary DDD: cell-based exposure, defined for the full sample ─────────
-# Two specs, reported side by side. WFH_Exposure is built from (GilNK, TeudaGvoha, MachozMegurim)
-# -- the same three variables DEFAULT_CONTROLS already includes additively -- so Spec 1's
-# WFH_Exposure carries substantial overlap with its own controls (at the time of writing: 74.5% of
-# its variance explained by GilNK+TeudaGvoha+MachozMegurim alone; design-matrix condition number
-# 267.8 -- see check_spec1_collinearity() below, which recomputes both from the live data on every
-# run rather than leaving them as a static claim that could go stale as the microdata changes).
-# Spec 2 is the standard fix for a shift-share regressor like this: fully interacted cell fixed
-# effects absorb WFH_Exposure's own cross-cell level entirely (its bare main effect becomes exactly
-# collinear with the FE and fixest drops it automatically), so identification comes only from
-# Mother/Post's within-cell variation against the (cell-constant) exposure value -- the
-# Mother:WFH_Exposure / Post:WFH_Exposure / Mother:Post:WFH_Exposure interactions remain identified
-# either way, since Mother and Post vary within a cell even though WFH_Exposure itself doesn't.
+# Two specs, reported side by side. cell_fe_vars (Spec 1's additive controls / Spec 2's fixed
+# effect) is intentionally COARSER than exposure_cell_vars above -- WFH_Exposure now varies within
+# every cell_fe_vars cell (across MatzavMishpachti/Dat categories), which is what restores
+# identifying power for Mother:Post:WFH_Exposure (see the comment above exposure_cells and
+# docs/decisions/exposure-cell-granularity-fix.md). Spec 1's WFH_Exposure still carries some
+# overlap with cell_fe_vars (it's built partly from those same 3 variables) --
+# check_spec1_collinearity() below reports the live R²/VIF/condition number rather than a static
+# comment. Spec 2's fully interacted cell FE no longer spans the same partition WFH_Exposure was
+# built on, so (verified against real data) WFH_Exposure's bare main effect is NOT dropped by
+# collinearity here anymore, unlike the old design where exposure and FE cells were identical.
 message("Running primary DDD (cell-based exposure, calibrated, full sample)...")
 ddd_df <- cleaned_df %>%
-  left_join(exposure_cells, by = c("Min", "GilNK", "TeudaGvoha", "MachozMegurim"))
+  left_join(exposure_cells, by = exposure_cell_vars)
+message(sprintf(
+  "Primary DDD join: %d of %d rows unmatched to an exposure cell (WFH_Exposure NA).",
+  sum(is.na(ddd_df$WFH_Exposure)), nrow(ddd_df)
+))
 
-cell_fe_vars    <- c("GilNK", "TeudaGvoha", "MachozMegurim")  # matches build_exposure_cells()'s
-                                                               # cell_vars, minus the constant Min
+cell_fe_vars    <- c("GilNK", "TeudaGvoha", "MachozMegurim")
 other_controls  <- setdiff(DEFAULT_CONTROLS, cell_fe_vars)
 
-# WFH_Exposure is constant within a (GilNK, TeudaGvoha, MachozMegurim) cell (<=210 distinct cells),
-# not at the individual level -- clustering at IDPUF here understates the true SE on
+# WFH_Exposure is assigned at exposure_cell_vars's finer granularity (~4,580 distinct cells), not
+# at the individual level -- clustering at IDPUF would still understate the true SE on
 # WFH_Exposure/Mother:WFH_Exposure/Post:WFH_Exposure/Mother:Post:WFH_Exposure (a classic Moulton
-# problem: errors are correlated within a cell via the shared exposure value and shared unobserved
-# cell shocks, and individual-level clustering doesn't see that correlation at all). Clustering on
-# the cell itself is the correct level for a shift-share regressor assigned at that granularity.
-# ~210 clusters is above the usual >=40-50 rule of thumb for asymptotic cluster-robust inference,
-# but still not large -- a small-cluster correction (e.g. wild-cluster bootstrap via fwildclusterboot)
-# would need a new dependency and is flagged separately rather than added here.
+# problem: errors are correlated within a shift-share cell via the shared exposure value and shared
+# unobserved cell shocks, and individual-level clustering doesn't see that correlation at all).
+# Clustering here is on the COARSER cell_fe_vars grouping (~210 distinct cells) rather than the
+# exposure cell itself -- clustering coarser than the level a regressor is assigned at is still
+# valid (and conservative, if anything) for the same Moulton reasoning, since every cell_fe_vars
+# group is a union of one or more exposure cells. ~210 clusters is above the usual >=40-50 rule of
+# thumb for asymptotic cluster-robust inference, but still not large -- a small-cluster correction
+# (e.g. wild-cluster bootstrap via fwildclusterboot) would need a new dependency and is flagged
+# separately rather than added here.
 cell_cluster_formula <- as.formula(paste("~", paste(cell_fe_vars, collapse = "^")))
 
 # Mother:GilNK, added 2026-09-11 per docs/decisions/age-balance-robustness-chain.md's real-data
@@ -240,10 +259,13 @@ ddd_primary_fe <- feols(
   data = ddd_df, cluster = cell_cluster_formula
 )
 check_for_dropped_coefficients(ddd_primary_additive, "primary DDD Spec 1 (additive controls)")
-# WFH_Exposure's bare main effect is EXPECTED to drop here -- see the comment above Spec 2's
-# formula. Only an additional, unexpected drop should warn.
-check_for_dropped_coefficients(ddd_primary_fe, "primary DDD Spec 2 (interacted cell FE)",
-                                expected_drops = "WFH_Exposure")
+# Unlike the old design (exposure_cell_vars == cell_fe_vars exactly), WFH_Exposure's bare main
+# effect is NOT expected to drop here anymore -- exposure_cell_vars is now finer than cell_fe_vars
+# (see the comment above exposure_cells), so WFH_Exposure varies within every cell_fe_vars FE cell
+# and is no longer exactly collinear with the FE. Verified against real data
+# (docs/decisions/exposure-cell-granularity-fix.md); no expected_drops here means any drop at all
+# --including WFH_Exposure's-- now triggers a warning, which is the point.
+check_for_dropped_coefficients(ddd_primary_fe, "primary DDD Spec 2 (interacted cell FE)")
 primary_ddd_table <- etable(
   ddd_primary_additive, ddd_primary_fe,
   headers = c("Spec 1: additive controls", "Spec 2: interacted cell FE"), digits = 4

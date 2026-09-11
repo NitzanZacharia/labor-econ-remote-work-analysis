@@ -39,9 +39,16 @@ run_balance_test <- function(cleaned_df, controls = DEFAULT_CONTROLS,
     )
   }
 
+  # Join key derived from exposure_cells' own columns, not hardcoded: build_exposure_cells()'s
+  # cell_vars can be (and, per main.R's primary spec, now is) finer than the original 4-variable
+  # set -- hardcoding the old 4 here would fan out (multiple exposure_cells rows sharing that
+  # 4-tuple but differing on the extra cell_vars) rather than error, so it's derived instead of
+  # assumed. exposure_cells always has exactly cell_vars + WFH_Exposure + n_cell (see
+  # build_exposure_cells()), so this is exactly cell_vars regardless of caller.
+  exposure_join_vars <- setdiff(names(exposure_cells), c("WFH_Exposure", "n_cell"))
   pre_df <- cleaned_df %>%
     filter(ShnatSeker < 2020) %>%
-    left_join(exposure_cells, by = c("Min", "GilNK", "TeudaGvoha", "MachozMegurim")) %>%
+    left_join(exposure_cells, by = exposure_join_vars) %>%
     filter(!is.na(WFH_Exposure)) %>%
     mutate(WFH_Exposure_Q = ntile(WFH_Exposure, 4))
 

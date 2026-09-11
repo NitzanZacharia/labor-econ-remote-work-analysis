@@ -1,5 +1,11 @@
 # Decision Memo: Null-vs-Power Audit of the Primary DDD
 
+**Superseded (root-cause diagnosis only) by `docs/decisions/exposure-cell-granularity-fix.md`,**
+which identifies *why* this design was underpowered (WFH_Exposure aliased with its own
+cell_fe_vars/controls) and fixes it (a finer exposure-cell partition). The numbers below describe
+the pre-fix design and are left unchanged as a historical record — they are not the current state
+of `main.R`.
+
 **Status: VERIFIED AGAINST REAL DATA, NOT YET COMMITTED.** The two diagnostics below
 (`scripts/wfh_first_stage_check.R`, `scripts/ddd_mde_diagnostics.R`) are built, unit-tested, and
 have been run once against the real CBS extract to produce the numbers in this memo. Per
