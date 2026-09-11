@@ -142,6 +142,7 @@ Everything the original roadmap scoped is built. What remains are documented met
 | `GilNK` (age-group) imbalance between Mother and non-Mother, concentrated in the lowest `WFH_Exposure` quartile | `docs/decisions/age-balance-robustness-chain.md` | Confirmed against real data (2026-09-09): the gap is largest in Q1 (~0.8 age-group units, t≈-81) and shrinks/reverses by Q4. Two comparison specs exist (age-interacted; `GilNK`-reweighted) but neither has replaced `main.R`'s primary DDD spec — that's a separate, still-open decision. |
 | ISCO disclosure-masking's effect on the exposure index | `isco_masking_diagnostics.R` | A proxy check via the coarser `ISCO1`, not a full resolution — a fully-masked ("XX") row still carries zero occupation signal at any resolution. |
 | `IDPUF` cross-period repetition | `validation.R`'s `check_idpuf_panel_structure()` | Reported, not corrected — the same person can in principle contribute to both `Post==0` and `Post==1` rows. |
+| Primary DDD's null `Mother:Post:WFH_Exposure` is underpowered, not evidence of a true null | `docs/decisions/null-vs-power-audit.md` | Verified against real data (2026-09-11): the exposure regressor's first-stage relevance is confirmed (coefficient 1.79***), but the closed-form minimum detectable effect (~0.39-0.40, ~51% of baseline employment) is far larger than the actual point estimates (0.10-0.13) — the design cannot distinguish a real effect from zero at plausible magnitudes. `RUN_NULL_VS_POWER_AUDIT` flag, default `FALSE`. |
 
 ### 4.3 Reconciliation note
 

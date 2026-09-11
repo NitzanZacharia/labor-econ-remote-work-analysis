@@ -20,6 +20,8 @@ source(file.path("scripts", "wfh_exposure_cells.R"))
 source(file.path("scripts", "isco_masking_diagnostics.R"))
 source(file.path("scripts", "ddd_collinearity_diagnostics.R"))
 source(file.path("scripts", "ddd_regression.R"))
+source(file.path("scripts", "wfh_first_stage_check.R"))
+source(file.path("scripts", "ddd_mde_diagnostics.R"))
 
 # ── 2. Configure paths ────────────────────────────────────────────────────────
 message("Edit folder paths if needed!")
@@ -300,6 +302,27 @@ if (RUN_AGE_BALANCE_ROBUSTNESS) {
   pretrend_wald <- run_pretrend_joint_test(diagnostics_results$pretrend_model)
 }
 
+# ── 8f. Null-vs-power audit (docs/decisions/null-vs-power-audit.md) ───────────────────────────
+# Off by default, diagnostic layered on top of the primary DDD (8a), not a replacement for it --
+# same framing as 8e. Exists to answer a question the null Mother:Post:WFH_Exposure result alone
+# can't: is this design well-powered enough to detect a plausible effect, or is the null
+# uninformative? Two checks: (1) does WFH_Exposure actually predict realized WFH_RefWeek at all
+# once measurable (Post==1) -- the shift-share design's core relevance assumption, asserted in
+# docs/decisions/calibrated-exposure-and-cell-ddd.md but never tested directly against real WFH
+# data until now; (2) the closed-form minimum detectable effect for both primary-DDD specs, so the
+# observed point estimates (0.103 additive / 0.131 cell-FE) can be read against how small a true
+# effect this design could even reliably detect.
+RUN_NULL_VS_POWER_AUDIT <- FALSE
+if (RUN_NULL_VS_POWER_AUDIT) {
+  message("Checking WFH_Exposure's first-stage relevance against realized WFH_RefWeek...")
+  wfh_first_stage <- check_wfh_first_stage_relevance(ddd_df)
+
+  message("Computing minimum detectable effect for the primary DDD's triple interaction...")
+  baseline_employment_rate <- mean(ddd_df$Employed, na.rm = TRUE)
+  mde_additive <- compute_ddd_mde(ddd_primary_additive, baseline_rate = baseline_employment_rate)
+  mde_fe       <- compute_ddd_mde(ddd_primary_fe, baseline_rate = baseline_employment_rate)
+}
+
 # ── 9. Export results ─────────────────────────────────────────────────────────
 # idpuf_panel_check is deliberately NOT included here: its idpuf_years/idpuf_periods tables are
 # keyed by individual IDPUF, which is closer to raw identifiable microdata than the aggregate
@@ -346,6 +369,14 @@ if (RUN_AGE_BALANCE_ROBUSTNESS) {
       ddd_reweighted$additive, ddd_reweighted$fe,
       headers = c("Reweighted: additive", "Reweighted: cell FE"), digits = 4
     )
+  )
+}
+
+if (RUN_NULL_VS_POWER_AUDIT) {
+  results_to_export$null_vs_power_audit <- list(
+    wfh_first_stage_table = wfh_first_stage$table,
+    mde_additive           = mde_additive,
+    mde_fe                 = mde_fe
   )
 }
 
