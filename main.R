@@ -179,19 +179,25 @@ exposure_realized <- build_wfh_exposure_index(exposure_population_df, ref_year =
 # third difference on Employed, the regression's own outcome. This is the primary exposure measure
 # for the causal DDD.
 #
-# exposure_cell_vars is DELIBERATELY FINER than cell_fe_vars below (adds MatzavMishpachti, Dat --
-# both already DEFAULT_CONTROLS, both pre-period demographic variables observed for everyone
+# exposure_cell_vars is DELIBERATELY FINER than cell_fe_vars below (adds MatzavMishpachti, Dat,
+# BirthContinent -- MatzavMishpachti/Dat are already DEFAULT_CONTROLS; BirthContinent
+# (data_processing.R's country-of-birth-by-continent derivation) is not a regression control at
+# all, added here specifically because it explains real variance in the underlying occupation
+# exposure score itself. All three are pre-period demographic variables observed for everyone
 # regardless of employment status, so adding them doesn't reintroduce occupation-level exposure's
 # employment-conditioning problem). See docs/decisions/null-vs-power-audit.md for why this matters:
 # when the exposure measure was built on EXACTLY cell_fe_vars (the old design), it was collinear
 # enough with its own controls/FE that the primary DDD's minimum detectable effect for
 # Mother:Post:WFH_Exposure was ~51% of the baseline employment rate -- roughly 4x the actual point
 # estimate, meaning the null result was uninformative, not evidence of a true null. Verified against
-# real data (docs/decisions/exposure-cell-granularity-fix.md): adding MatzavMishpachti+Dat to the
-# exposure cell definition, while leaving cell_fe_vars/controls unchanged, cuts the MDE by ~37% by
-# restoring within-FE-cell variation in WFH_Exposure, with negligible cell-size cost (4,580 cells,
-# only 2 below n=100).
-exposure_cell_vars <- c("Min", "GilNK", "TeudaGvoha", "MachozMegurim", "MatzavMishpachti", "Dat")
+# real data (docs/decisions/exposure-cell-granularity-fix.md): adding MatzavMishpachti+Dat cut the
+# MDE by ~37% (4,580 cells, only 2 below n=100). Adding BirthContinent on top of that (this update)
+# cuts it a further ~18% (8,884 cells, median cell size 1,776, only 9 below n=100) -- a different
+# mechanism than the first cut: BirthContinent measurably reduces WFH_Exposure's own measurement
+# noise (raises its R^2 against the underlying occupation exposure score from 0.322 to 0.375 on the
+# pre-period employed population), rather than only decorrelating it from cell_fe_vars.
+exposure_cell_vars <- c("Min", "GilNK", "TeudaGvoha", "MachozMegurim", "MatzavMishpachti", "Dat",
+                         "BirthContinent")
 exposure_cells <- build_exposure_cells(
   exposure_population_df,
   exposure_calibrated %>% select(ISCO2, tele_ext = wfh_exposure_calibrated),
@@ -201,7 +207,7 @@ exposure_cells <- build_exposure_cells(
 # ── 8a. Primary DDD: cell-based exposure, defined for the full sample ─────────
 # Two specs, reported side by side. cell_fe_vars (Spec 1's additive controls / Spec 2's fixed
 # effect) is intentionally COARSER than exposure_cell_vars above -- WFH_Exposure now varies within
-# every cell_fe_vars cell (across MatzavMishpachti/Dat categories), which is what restores
+# every cell_fe_vars cell (across MatzavMishpachti/Dat/BirthContinent categories), which is what restores
 # identifying power for Mother:Post:WFH_Exposure (see the comment above exposure_cells and
 # docs/decisions/exposure-cell-granularity-fix.md). Spec 1's WFH_Exposure still carries some
 # overlap with cell_fe_vars (it's built partly from those same 3 variables) --

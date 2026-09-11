@@ -144,3 +144,67 @@ committed `FALSE` defaults):
 
 That memo's root-cause diagnosis (why the null was uninformative) is superseded by this one; its
 own real-data numbers are left intact as a historical record of the pre-fix design, not rewritten.
+
+## Update: adding `BirthContinent` (same design, a 7th safe dimension)
+
+**Status: VERIFIED AGAINST REAL DATA, NOT YET COMMITTED.**
+
+**Motivation.** The user asked why `WFH_Exposure` isn't built directly from ISCO-08 occupation
+codes. Analysis showed that would reintroduce a selection-on-the-outcome problem (occupation is
+only defined for the employed, and `Employed` is the DDD's own dependent variable — the existing
+occupation-level robustness specs already demonstrate this: ~9.7x tighter SE than the cell-based
+design, but 17.4% of the sample dropped non-randomly along the employment margin). A follow-up
+exploration into a continuous/predicted-exposure redesign instead found, somewhat counter-
+intuitively, that a naive additive regression is *worse* than the current discrete-cell approach:
+`build_exposure_cells()`'s cell-mean construction is already mathematically equivalent to a
+fully-saturated interaction model (R²=0.322 against `tele_ext` on the pre-period employed
+population), while the same variables fit *additively* only reach R²=0.266 — a 17% relative loss,
+plus a small rate of nonsensical out-of-[0,1] fitted values the saturated cell-mean approach is
+mechanically immune to. A fully-interacted `lm()` on this data also crashes with an out-of-memory
+error; only `feols()`'s FE machinery (already how `build_exposure_cells()` works) handles full
+saturation on data this size.
+
+That exploration did surface one genuinely new, safe, high-value covariate: `BirthContinent`
+(`scripts/data_processing.R:141-153` — country of birth grouped into
+Israel/Asia/Africa/Europe/North America/Other, factor, 6 levels, 0.2% NA, derived from raw
+`SemelEretzLeda`). It's pre-determined, defined for everyone regardless of employment status
+(unlike e.g. `MachozYishuvAvoda`, workplace municipality, confirmed empirically to be 71% missing
+among the non-employed — correctly excluded), and empirically the strongest predictor of `tele_ext`
+tested: adding it to the saturated cell design raises R² from 0.322 to 0.375, the largest gain of
+any candidate (`Leom` and `MisparHorimYechidim` added almost nothing; the children-count family of
+variables were excluded by design since they're the literal source of the `Mother` indicator).
+
+**Empirical validation (real data):**
+
+| Candidate | `cell_vars` | Distinct cells | `n_cell` min / p25 / median | Unmatched rows | R² on `cell_fe_vars` | VIF | Spec 1 MDE (% baseline) | Spec 2 MDE (% baseline) |
+|---|---|---|---|---|---|---|---|---|
+| 0 (current: 6 vars) | ...+`MatzavMishpachti`+`Dat` | 4,580 | 74.6 / 1,014 / 2,803 | 4,908 (1.32%) | 0.387 | 1.63 | 0.2494 (32.2%) | 0.2469 (31.9%) |
+| **1 (+`BirthContinent`: 7 vars)** | **...+`BirthContinent`** | **8,884** | **30.2 / 787.5 / 1,776** | **9,962 (2.67%)** | **0.285** | **1.40** | **0.2031 (26.3%)** | **0.2022 (26.1%)** |
+
+Cell-size support stays very healthy (median cell size 1,776, only 9 of 8,884 cells — 0.1% — below
+n=100); the unmatched-row rate roughly doubles (1.32%→2.67%) but remains small. Spec 2's MDE
+improves by **18.1%** (0.2469→0.2022). Directly confirmed (not assumed): `spec2$collin.var` is
+empty — `WFH_Exposure`'s bare main effect still survives in Spec 2, unaffected by the extra
+dimension. **Candidate 1 adopted.**
+
+**What changed:** `main.R`'s `exposure_cell_vars` now includes `BirthContinent` as a 7th element;
+`cell_fe_vars`/`other_controls`/the primary DDD formulas are unchanged (`BirthContinent` is not a
+regression control or FE dimension, only part of the exposure-cell definition). The `ddd_df` join
+already derives its key from `exposure_cell_vars` (a variable, not a hardcoded list, from the
+original fix), so no separate join-key edit was needed — confirms that design choice was the right
+one. The robustness-chain files (`balance_test.R`, `age_balance_robustness.R`,
+`phase2_robustness.R`) already derive their join key dynamically from `exposure_cells`'s own
+columns (also from the original fix), so they needed no changes either — confirmed by re-running
+`RUN_AGE_BALANCE_ROBUSTNESS` end-to-end against real data.
+
+**Post-change numbers, full pipeline (real data, `Mother:GilNK` included):** Spec 1
+`Mother:Post:WFH_Exposure` = −0.0257 (SE 0.0725); Spec 2 = −0.0194 (SE 0.0722). Still well inside
+the (now smaller, but still substantial) MDE — this remains an underpowered-not-informative result,
+now with somewhat less noise in the exposure measure itself, not a newly-significant finding.
+
+**Options considered and rejected (this update):** a continuous/predicted-occupation regression
+(rejected — underperforms the saturated cell design in-sample, per the R² comparison above, and
+introduces a small real risk of out-of-range fitted values the cell approach doesn't have); the
+children-count variable family (`MisparYeladimAd17MB` etc. — rejected, mechanically adjacent to
+the `Mother` indicator itself); `Leom` and `MisparHorimYechidim` (tested, negligible R² gain, not
+worth the added cell fragmentation).

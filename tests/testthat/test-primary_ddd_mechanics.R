@@ -118,9 +118,12 @@ test_that("Spec 2 (interacted cell FE) recovers the same sign, and fixest drops 
 
 # ── Finer exposure-cell design (docs/decisions/exposure-cell-granularity-fix.md) ─────────────────
 # main.R's real primary DDD now builds WFH_Exposure on a partition (exposure_cell_vars) FINER than
-# cell_fe_vars -- it additionally varies by MatzavMishpachti -- specifically so it is no longer
-# exactly collinear with Spec 2's fully interacted cell FE (verified against real data: the fix
-# cuts the design's minimum detectable effect by ~37%). This panel mirrors that real design
+# cell_fe_vars -- as of this update it additionally varies by MatzavMishpachti, Dat, and
+# BirthContinent (this panel only exercises MatzavMishpachti -- the mechanism being tested here is
+# general to "any extra dimension not in cell_fe_vars", not tied to the real list's exact current
+# length) -- specifically so it is no longer exactly collinear with Spec 2's fully interacted cell
+# FE (verified against real data: MatzavMishpachti+Dat cut the design's minimum detectable effect
+# by ~37%; adding BirthContinent cut it a further ~18%). This panel mirrors that real design
 # (unlike make_ddd_panel() above, which deliberately keeps exposure_cell_vars == cell_fe_vars to
 # document the OLD aliasing mechanism) and asserts the opposite drop behavior.
 
