@@ -3,6 +3,11 @@
 .RData
 .RDataTmp*
 .Ruserdata
+# Litter from a headless `Rscript main.R`/`Rscript run_tests.R` run: dev.new() falls back to a
+# default pdf() device when no display is available, auto-numbering Rplots1.pdf, Rplots2.pdf, ...
+# on repeated calls (see Diagnostics.R's and run_tests.R's own comments on this). Not a real
+# output -- has leaked into the working tree and gotten accidentally committed twice already.
+Rplots*.pdf
 *.csv
 !tests/testthat/fixtures/**/*.csv
 !israeli_cbs_wfh_2digit.csv
