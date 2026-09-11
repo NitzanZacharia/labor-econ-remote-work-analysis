@@ -22,8 +22,9 @@ source(file.path("robustness", "age_balance_robustness.R"))
 prepare_reweighted_ddd_df <- function(cleaned_df, exposure_cells, rake = NULL) {
   if (is.null(rake)) rake <- build_gilnk_rake_weights(cleaned_df, exposure_cells)
 
+  exposure_join_vars <- setdiff(names(exposure_cells), c("WFH_Exposure", "n_cell"))
   ddd_df <- cleaned_df %>%
-    left_join(exposure_cells, by = c("Min", "GilNK", "TeudaGvoha", "MachozMegurim")) %>%
+    left_join(exposure_cells, by = exposure_join_vars) %>%
     filter(!is.na(WFH_Exposure)) %>%
     assign_wfh_quartile(rake$breaks) %>%
     left_join(rake$weights, by = c("WFH_Exposure_Q", "Mother", "GilNK")) %>%

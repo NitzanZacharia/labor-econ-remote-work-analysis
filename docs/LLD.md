@@ -285,6 +285,10 @@ build_exposure_cells(raw_all: tibble, exposure_isco2: tibble,
                       cell_vars: character = c("Min", "GilNK", "TeudaGvoha", "MachozMegurim")) -> tibble
 # Pre-period (2017-2019) shift-share exposure by demographic cell, weighted by MishkalSofi. The
 # primary DDD's exposure regressor -- unlike the other 3 measures, defined for non-employed rows too.
+# The function's default cell_vars (above) is unchanged, but main.R's real call site now passes an
+# explicit, finer cell_vars (adds MatzavMishpachti, Dat) -- deliberately different from
+# cell_fe_vars (the regression's own controls/FE) to restore identifying power for
+# Mother:Post:WFH_Exposure. See docs/decisions/exposure-cell-granularity-fix.md.
 
 check_isco_masking_sensitivity(cleaned_df: tibble, wfh_col: character(1) = "WFH",
                                 ref_year: numeric = c(2022, 2023)) ->

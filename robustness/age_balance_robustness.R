@@ -27,9 +27,14 @@ library(fixest)
 source(file.path("scripts", "data_processing.R"))
 
 compute_pre_period_quartile_breaks <- function(cleaned_df, exposure_cells) {
+  # Derived from exposure_cells' own columns, not hardcoded -- build_exposure_cells()'s cell_vars
+  # can be finer than the original 4-variable set (see main.R's primary spec); a hardcoded 4-key
+  # join would fan out silently rather than error. exposure_cells always has exactly
+  # cell_vars + WFH_Exposure + n_cell.
+  exposure_join_vars <- setdiff(names(exposure_cells), c("WFH_Exposure", "n_cell"))
   pre_wfh <- cleaned_df %>%
     filter(ShnatSeker < 2020) %>%
-    left_join(exposure_cells, by = c("Min", "GilNK", "TeudaGvoha", "MachozMegurim")) %>%
+    left_join(exposure_cells, by = exposure_join_vars) %>%
     filter(!is.na(WFH_Exposure)) %>%
     pull(WFH_Exposure)
 
@@ -52,9 +57,10 @@ diagnose_gilnk_by_quartile <- function(cleaned_df, exposure_cells) {
   gilnk_num <- function(x) as.numeric(as.character(x))
   breaks <- compute_pre_period_quartile_breaks(cleaned_df, exposure_cells)
 
+  exposure_join_vars <- setdiff(names(exposure_cells), c("WFH_Exposure", "n_cell"))
   pre_df <- cleaned_df %>%
     filter(ShnatSeker < 2020) %>%
-    left_join(exposure_cells, by = c("Min", "GilNK", "TeudaGvoha", "MachozMegurim")) %>%
+    left_join(exposure_cells, by = exposure_join_vars) %>%
     filter(!is.na(WFH_Exposure)) %>%
     assign_wfh_quartile(breaks)
 
@@ -91,8 +97,9 @@ run_ddd_age_interacted <- function(cleaned_df, exposure_cells, controls = DEFAUL
   # docs/decisions/calibrated-exposure-and-cell-ddd.md and age-balance-robustness-chain.md).
   cluster_formula <- as.formula(paste("~", paste(cell_fe_vars, collapse = "^")))
 
+  exposure_join_vars <- setdiff(names(exposure_cells), c("WFH_Exposure", "n_cell"))
   ddd_df <- cleaned_df %>%
-    left_join(exposure_cells, by = c("Min", "GilNK", "TeudaGvoha", "MachozMegurim"))
+    left_join(exposure_cells, by = exposure_join_vars)
 
   additive <- feols(
     as.formula(paste("Employed ~ Mother * Post * WFH_Exposure + Mother:GilNK +",
@@ -120,9 +127,10 @@ run_ddd_age_interacted <- function(cleaned_df, exposure_cells, controls = DEFAUL
 build_gilnk_rake_weights <- function(cleaned_df, exposure_cells) {
   breaks <- compute_pre_period_quartile_breaks(cleaned_df, exposure_cells)
 
+  exposure_join_vars <- setdiff(names(exposure_cells), c("WFH_Exposure", "n_cell"))
   pre_df <- cleaned_df %>%
     filter(ShnatSeker < 2020) %>%
-    left_join(exposure_cells, by = c("Min", "GilNK", "TeudaGvoha", "MachozMegurim")) %>%
+    left_join(exposure_cells, by = exposure_join_vars) %>%
     filter(!is.na(WFH_Exposure)) %>%
     assign_wfh_quartile(breaks)
 
@@ -167,8 +175,9 @@ run_ddd_reweighted <- function(cleaned_df, exposure_cells, controls = DEFAULT_CO
   # identically pre- and post-period, so the same pre-period-derived weight applies to every row
   # sharing that triple across the full sample, per "apply those weights to the full-period
   # regression".
+  exposure_join_vars <- setdiff(names(exposure_cells), c("WFH_Exposure", "n_cell"))
   ddd_df <- cleaned_df %>%
-    left_join(exposure_cells, by = c("Min", "GilNK", "TeudaGvoha", "MachozMegurim")) %>%
+    left_join(exposure_cells, by = exposure_join_vars) %>%
     filter(!is.na(WFH_Exposure)) %>%
     assign_wfh_quartile(rake$breaks) %>%
     left_join(rake$weights, by = c("WFH_Exposure_Q", "Mother", "GilNK"))
