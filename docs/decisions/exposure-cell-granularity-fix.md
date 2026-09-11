@@ -208,3 +208,45 @@ introduces a small real risk of out-of-range fitted values the cell approach doe
 children-count variable family (`MisparYeladimAd17MB` etc. — rejected, mechanically adjacent to
 the `Mother` indicator itself); `Leom` and `MisparHorimYechidim` (tested, negligible R² gain, not
 worth the added cell fragmentation).
+
+## Considered and rejected: cell-level aggregation + WLS
+
+**Proposal.** Aggregate the individual-level DDD sample to cells defined by
+`exposure_cell_vars × Mother × Post`, compute each cell's mean `Employed` as the dependent
+variable, and refit `Mother*Post*WFH_Exposure + controls` as a weighted least squares (WLS)
+regression with weights equal to cell row-count (`n`), on the theory that averaging within cells
+would "crush idiosyncratic individual variance" and shrink the SE/MDE further, while keeping
+non-employed rows in the sample (unlike occupation-level exposure).
+
+**Why it doesn't work, in theory.** When the right-hand-side variables (`Mother`, `Post`,
+`WFH_Exposure`, and all controls) are constant within each aggregation cell — true here by
+construction — WLS on cell means weighted by cell size is algebraically identical to the
+individual-level regression already being run: same point estimates, and the same standard errors
+*if* computed correctly. `main.R`'s existing cluster-robust SEs (clustered at `cell_fe_vars`) exist
+specifically to correct for correlated shocks within a cell (the Moulton problem, documented at
+`main.R`'s `cell_cluster_formula` comment) — exactly the source of "noise" aggregation would
+otherwise appear to crush. A *naive* (unclustered) WLS SE on the aggregated data would look
+tighter, but only by silently re-introducing the same problem clustering already fixes — a
+spurious, not a genuine, power gain.
+
+**Empirical confirmation (real data, both specs, `n`-weighted WLS, no `MishkalSofi` survey weight
+used — applying `MishkalSofi` to an outcome regression needs explicit sign-off per `CLAUDE.md` and
+was not given):**
+
+| | Spec 1 SE / MDE (% baseline) | Spec 2 SE / MDE (% baseline) |
+|---|---|---|
+| Current individual-level (cluster-robust) | 0.0725 / 0.2031 (26.3%) | 0.0722 / 0.2022 (26.1%) |
+| Aggregated WLS, naive (unclustered) SE | 0.0749 / 0.2099 (27.1%) | 0.0725 / 0.2033 (26.3%) |
+| Aggregated WLS, clustered at `cell_fe_vars` (same level as today) | 0.0726 / 0.2034 (26.3%) | 0.0723 / 0.2024 (26.2%) |
+
+Point estimates matched the individual-level regression to 12 decimal places
+(`Mother:Post:WFH_Exposure`: `-0.025732` vs. `-0.025732`, `-0.019363` vs. `-0.019363`), confirming
+the algebraic identity. Neither WLS variant improved on the current MDE — the naive version was
+even slightly *worse*. Aggregating `exposure_cell_vars × Mother × Post` produced 11,737 cells from
+362,779 rows, a **median cell size of 6** (min 1) — cross-classifying the already-fine 7-variable
+exposure partition by `Mother` and `Post` leaves almost no individuals per cell to average over, so
+there was essentially no aggregation happening in the first place, consistent with the "no free
+power" theoretical prediction.
+
+**Decision: rejected.** No wiring into `main.R` — it would add a real aggregation step and a new
+WLS spec for a result identical (or fractionally worse) than what's already there.
