@@ -213,13 +213,26 @@ other_controls  <- setdiff(DEFAULT_CONTROLS, cell_fe_vars)
 # would need a new dependency and is flagged separately rather than added here.
 cell_cluster_formula <- as.formula(paste("~", paste(cell_fe_vars, collapse = "^")))
 
+# Mother:GilNK, added 2026-09-11 per docs/decisions/age-balance-robustness-chain.md's real-data
+# finding: GilNK is imbalanced between Mother==1/0 in the pre-period, with the gap's SIZE varying
+# by WFH_Exposure quartile -- an additive GilNK term can't correct for an imbalance that itself
+# varies with the regressor of interest. Confirmed against real data (robustness/
+# age_balance_robustness.R's run_ddd_age_interacted()) that adding this term does NOT change the
+# Mother:Post:WFH_Exposure conclusion (stays insignificant, similar magnitude either way) -- so
+# this isn't rescuing or overturning the WFH-mechanism result, it's a distinct, independently real
+# finding this term surfaces: once included, the base Mother effect and Mother:GilNK terms
+# themselves become significant and age-increasing in the cell-FE spec, which the purely-additive
+# GilNK control had been masking. In Spec 2, GilNK's own main effect is absorbed into the cell FE,
+# but Mother:GilNK is NOT collinear with it (the FE groups by GilNK^TeudaGvoha^MachozMegurim
+# jointly, not by an individual's own Mother status within that cell), so it still adds
+# non-redundant information there.
 ddd_primary_additive <- feols(
-  as.formula(paste("Employed ~ Mother * Post * WFH_Exposure +",
+  as.formula(paste("Employed ~ Mother * Post * WFH_Exposure + Mother:GilNK +",
                     paste(DEFAULT_CONTROLS, collapse = " + "))),
   data = ddd_df, cluster = cell_cluster_formula
 )
 ddd_primary_fe <- feols(
-  as.formula(paste("Employed ~ Mother * Post * WFH_Exposure +",
+  as.formula(paste("Employed ~ Mother * Post * WFH_Exposure + Mother:GilNK +",
                     paste(other_controls, collapse = " + "),
                     "|", paste(cell_fe_vars, collapse = "^"))),
   data = ddd_df, cluster = cell_cluster_formula

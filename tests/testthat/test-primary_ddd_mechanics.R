@@ -63,12 +63,12 @@ fit_primary_ddd <- function(ddd_df) {
   cell_cluster_formula <- as.formula(paste("~", paste(cell_fe_vars, collapse = "^")))
 
   additive <- suppressWarnings(feols(
-    as.formula(paste("Employed ~ Mother * Post * WFH_Exposure +",
+    as.formula(paste("Employed ~ Mother * Post * WFH_Exposure + Mother:GilNK +",
                       paste(DEFAULT_CONTROLS, collapse = " + "))),
     data = ddd_df, cluster = cell_cluster_formula
   ))
   fe <- suppressWarnings(feols(
-    as.formula(paste("Employed ~ Mother * Post * WFH_Exposure +",
+    as.formula(paste("Employed ~ Mother * Post * WFH_Exposure + Mother:GilNK +",
                       paste(other_controls, collapse = " + "),
                       "|", paste(cell_fe_vars, collapse = "^"))),
     data = ddd_df, cluster = cell_cluster_formula

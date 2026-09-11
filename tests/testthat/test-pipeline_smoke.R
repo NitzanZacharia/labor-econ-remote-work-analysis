@@ -92,7 +92,7 @@ test_that("the WFH-exposure + primary DDD pipeline (main.R's section 8) runs end
   cell_cluster_formula <- as.formula(paste("~", paste(cell_fe_vars, collapse = "^")))
 
   ddd_primary_additive <- suppressWarnings(feols(
-    as.formula(paste("Employed ~ Mother * Post * WFH_Exposure +",
+    as.formula(paste("Employed ~ Mother * Post * WFH_Exposure + Mother:GilNK +",
                       paste(DEFAULT_CONTROLS, collapse = " + "))),
     data = ddd_df, cluster = cell_cluster_formula
   ))
@@ -110,7 +110,7 @@ test_that("the WFH-exposure + primary DDD pipeline (main.R's section 8) runs end
   # way but sized so cells repeat across periods) are covered by test-primary_ddd_mechanics.R.
   ddd_primary_fe <- tryCatch(
     suppressWarnings(feols(
-      as.formula(paste("Employed ~ Mother * Post * WFH_Exposure +",
+      as.formula(paste("Employed ~ Mother * Post * WFH_Exposure + Mother:GilNK +",
                         paste(other_controls, collapse = " + "),
                         "|", paste(cell_fe_vars, collapse = "^"))),
       data = ddd_df, cluster = cell_cluster_formula
