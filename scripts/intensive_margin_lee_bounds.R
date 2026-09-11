@@ -58,6 +58,7 @@
 library(tidyverse)
 library(fixest)
 source(file.path("scripts", "data_processing.R"))
+source(file.path("scripts", "imbens_manski_ci.R"))
 
 run_intensive_margin_lee_bounds <- function(cleaned_df, controls = DEFAULT_CONTROLS) {
 
@@ -144,27 +145,11 @@ run_intensive_margin_lee_bounds <- function(cleaned_df, controls = DEFAULT_CONTR
   )
   print(as.data.frame(bounds_table), digits = 4)
 
-  # Imbens & Manski (2004), "Confidence Intervals for Partially Identified Parameters,"
-  # Econometrica 72(6): a CI for the true parameter under partial identification, not just each
-  # trimmed regression's own sampling uncertainty around its own point estimate. Treating trim_prop
-  # as a fixed, known constant (as lower_reg/upper_reg above do) ignores that it is itself
-  # estimated from s00/s01/s10/s11 -- part of the identified interval's own width is sampling noise,
-  # not a real feature of the trimming. Solve for c_alpha in
-  #   Phi(c_alpha + delta / max(se_L, se_U)) - Phi(-c_alpha) = conf_level,   delta = theta_U - theta_L
-  # and report [theta_L - c_alpha*se_L, theta_U + c_alpha*se_U]. This collapses to the ordinary
-  # +-1.96*se interval when delta == 0 (no excess selection to trim, so lower/point/upper coincide).
-  imbens_manski_ci <- function(theta_L, theta_U, se_L, se_U, conf_level = 0.95) {
-    delta <- max(theta_U - theta_L, 0)
-    denom <- max(se_L, se_U)
-    if (!is.finite(denom) || denom <= 0) {
-      z_ci <- qnorm(1 - (1 - conf_level) / 2)
-      return(list(c_alpha = z_ci, lower = theta_L - z_ci * se_L, upper = theta_U + z_ci * se_U))
-    }
-    target  <- function(c) pnorm(c + delta / denom) - pnorm(-c) - conf_level
-    c_alpha <- uniroot(target, interval = c(0, 20))$root
-    list(c_alpha = c_alpha, lower = theta_L - c_alpha * se_L, upper = theta_U + c_alpha * se_U)
-  }
-
+  # Imbens & Manski (2004) CI for the true parameter under partial identification -- treating
+  # trim_prop as a fixed, known constant (as lower_reg/upper_reg above do) ignores that it is
+  # itself estimated from s00/s01/s10/s11; part of the identified interval's own width is sampling
+  # noise, not a real feature of the trimming. See imbens_manski_ci.R (shared with
+  # hours_ddd_lee_bounds.R) for the closed-form solver and its derivation.
   im_ci <- imbens_manski_ci(co(lower_reg), co(upper_reg), se_lower, se_upper)
   message(sprintf(
     "run_intensive_margin_lee_bounds: 95%% Imbens-Manski CI for the identified set = [%.4f, %.4f] (c_alpha = %.3f).",

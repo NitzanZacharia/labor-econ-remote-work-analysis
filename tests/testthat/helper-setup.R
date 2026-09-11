@@ -18,7 +18,7 @@ find_project_root <- function(start = getwd()) {
 
 project_root <- find_project_root()
 
-# The 17 function-bearing files live in scripts/ and each other's internal source() calls (e.g.
+# The 19 function-bearing files live in scripts/ and each other's internal source() calls (e.g.
 # data_processing.R referenced from basic_regression.R) use root-relative paths like
 # file.path("scripts", "data_processing.R") -- resolved against the current working directory, not
 # against the sourced file's own location. So instead of chdir=TRUE per file (which would cd into
@@ -33,6 +33,7 @@ source(file.path("scripts", "comparative_statistics.R"))
 source(file.path("scripts", "basic_regression.R"))
 source(file.path("scripts", "basic_reg_compared_data.R"))
 source(file.path("scripts", "intensive_margin_regression.R"))
+source(file.path("scripts", "imbens_manski_ci.R"))
 source(file.path("scripts", "intensive_margin_lee_bounds.R"))
 source(file.path("scripts", "gender_placebo.R"))
 source(file.path("scripts", "wfh_exposure_index.R"))
@@ -41,6 +42,8 @@ source(file.path("scripts", "isco_masking_diagnostics.R"))
 source(file.path("scripts", "ddd_collinearity_diagnostics.R"))
 source(file.path("scripts", "israeli_market_mismatch.R"))
 source(file.path("scripts", "ddd_regression.R"))
+source(file.path("scripts", "hours_ddd_regression.R"))
+source(file.path("scripts", "hours_ddd_lee_bounds.R"))
 source(file.path("scripts", "wfh_first_stage_check.R"))
 source(file.path("scripts", "ddd_mde_diagnostics.R"))
 source(file.path("scripts", "export_results.R"))

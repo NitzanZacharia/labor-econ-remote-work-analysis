@@ -20,6 +20,8 @@ source(file.path("scripts", "wfh_exposure_cells.R"))
 source(file.path("scripts", "isco_masking_diagnostics.R"))
 source(file.path("scripts", "ddd_collinearity_diagnostics.R"))
 source(file.path("scripts", "ddd_regression.R"))
+source(file.path("scripts", "hours_ddd_regression.R"))
+source(file.path("scripts", "hours_ddd_lee_bounds.R"))
 source(file.path("scripts", "wfh_first_stage_check.R"))
 source(file.path("scripts", "ddd_mde_diagnostics.R"))
 
@@ -351,6 +353,43 @@ if (RUN_NULL_VS_POWER_AUDIT) {
   mde_fe       <- compute_ddd_mde(ddd_primary_fe, baseline_rate = baseline_employment_rate)
 }
 
+# ── 8g. Hours-worked pivot: intensive-margin DDD with pure ISCO-08 exposure (docs/decisions/
+# hours-ddd-pivot.md) ──────────────────────────────────────────────────────────────────────────
+# Off by default, same framing as 8e/8f -- diagnostic/exploratory, layered alongside the primary
+# extensive-margin DDD (8a), not a replacement for it. Motivation: 8a's Mother:Post:WFH_Exposure
+# remains underpowered even after the exposure-cell-granularity fixes (MDE ~26% of baseline
+# employment, docs/decisions/exposure-cell-granularity-fix.md), and cell-level WLS aggregation was
+# confirmed unable to recover further power (same memo's "Considered and rejected" section). This
+# pivots the outcome to hours worked (WorkHoursCont, defined only for Employed==1) and the exposure
+# regressor to the PURE occupation-level measure (exposure_calibrated's wfh_exposure_calibrated) --
+# safe here specifically because WorkHoursCont's own conditioning on employment is intrinsic to the
+# question, unlike 8a's Employed outcome, where an occupation-level regressor would condition the
+# DDD's own outcome on itself (see docs/decisions/exposure-cell-granularity-fix.md's rejection of
+# that approach for the extensive margin). Dropping non-employed rows to run this regression still
+# introduces a real selection-on-a-mediator problem, bounded via run_hours_ddd_lee_bounds()'s
+# generalization of intensive_margin_lee_bounds.R's Lee (2009) trimming bounds, stratified by
+# quartiles of the demographic-cell-based WFH_Exposure (defined for the full sample) -- see
+# hours_ddd_lee_bounds.R's header comment for why two different exposure measures are used.
+RUN_HOURS_DDD_PIVOT <- FALSE
+if (RUN_HOURS_DDD_PIVOT) {
+  message("Running hours-worked DDD (pure occupation-level exposure, Employed==1 subsample)...")
+  hours_ddd <- run_hours_ddd_regression(
+    cleaned_df,
+    exposure_calibrated %>% select(occupation_code = ISCO2, wfh_exposure = wfh_exposure_calibrated)
+  )
+
+  message("Computing minimum detectable effect for the hours DDD's triple interaction...")
+  baseline_hours <- mean(cleaned_df$WorkHoursCont[cleaned_df$Employed == 1], na.rm = TRUE)
+  mde_hours <- compute_ddd_mde(hours_ddd$model, baseline_rate = baseline_hours)
+
+  message("Running generalized Lee bounds for the hours DDD (stratified by WFH_Exposure quartile)...")
+  hours_lee_bounds <- run_hours_ddd_lee_bounds(
+    cleaned_df,
+    exposure_calibrated %>% select(occupation_code = ISCO2, wfh_exposure = wfh_exposure_calibrated),
+    exposure_cells
+  )
+}
+
 # ── 9. Export results ─────────────────────────────────────────────────────────
 # idpuf_panel_check is deliberately NOT included here: its idpuf_years/idpuf_periods tables are
 # keyed by individual IDPUF, which is closer to raw identifiable microdata than the aggregate
@@ -405,6 +444,16 @@ if (RUN_NULL_VS_POWER_AUDIT) {
     wfh_first_stage_table = wfh_first_stage$table,
     mde_additive           = mde_additive,
     mde_fe                 = mde_fe
+  )
+}
+
+if (RUN_HOURS_DDD_PIVOT) {
+  results_to_export$hours_ddd_pivot <- list(
+    hours_ddd_table       = hours_ddd$table,
+    mde_hours             = mde_hours,
+    lee_bounds_table      = hours_lee_bounds$table,
+    lee_bounds_quartiles  = hours_lee_bounds$diagnostics$quartile_selection_rates,
+    lee_bounds_n_trimmed  = hours_lee_bounds$diagnostics$n_trimmed_by_quartile
   )
 }
 
