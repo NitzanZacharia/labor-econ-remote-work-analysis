@@ -51,3 +51,7 @@ It does, however, surface a separate, real finding: adding `Mother:GilNK` reveal
 **Not decided by this update**: whether to also promote the full reweighted spec (pre-period `GilNK`-raking weights) to primary. That remains the open question this memo originally posed — `run_ddd_reweighted()` stays a comparison spec, surfaced only when `RUN_AGE_BALANCE_ROBUSTNESS` is on.
 
 **A separate, unresolved inconsistency this update surfaced**: `run_ddd_age_interacted()`/`run_ddd_reweighted()` (this file) still cluster at `~IDPUF`, not the cell level — they predate the C2 audit fix and were never updated to match it, unlike `main.R`'s own primary spec. The comparison numbers above therefore understate their true SEs relative to the (now Mother:GilNK-augmented) primary spec's corrected clustering. Worth fixing for consistency in a future pass, but doesn't change the conclusion above (the point estimates, not just the SEs, already stay small and similar across specs).
+
+## Update (2026-09-11): `~IDPUF` clustering fixed
+
+Both functions now cluster on `~GilNK^TeudaGvoha^MachozMegurim` (via a `cluster_formula` built the same way as `main.R`'s `cell_cluster_formula`), matching the primary spec's C2 fix. This inconsistency is resolved — comparison-spec SEs are now computed the same way as the primary spec's, so the point estimate/SE comparison in the update above is apples-to-apples going forward. `Rscript run_tests.R` stays green (no test asserted on the old clustering choice).

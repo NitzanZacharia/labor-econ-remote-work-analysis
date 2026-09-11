@@ -85,6 +85,11 @@ diagnose_gilnk_by_quartile <- function(cleaned_df, exposure_cells) {
 run_ddd_age_interacted <- function(cleaned_df, exposure_cells, controls = DEFAULT_CONTROLS) {
   cell_fe_vars   <- c("GilNK", "TeudaGvoha", "MachozMegurim")
   other_controls <- setdiff(controls, cell_fe_vars)
+  # Cell-level, not ~IDPUF: WFH_Exposure is constant within a (GilNK, TeudaGvoha, MachozMegurim)
+  # cell, so individual-level clustering misses the correlation a shared exposure value and shared
+  # unobserved cell shocks induce (Moulton problem) -- matches main.R's primary-spec fix (see
+  # docs/decisions/calibrated-exposure-and-cell-ddd.md and age-balance-robustness-chain.md).
+  cluster_formula <- as.formula(paste("~", paste(cell_fe_vars, collapse = "^")))
 
   ddd_df <- cleaned_df %>%
     left_join(exposure_cells, by = c("Min", "GilNK", "TeudaGvoha", "MachozMegurim"))
@@ -92,7 +97,7 @@ run_ddd_age_interacted <- function(cleaned_df, exposure_cells, controls = DEFAUL
   additive <- feols(
     as.formula(paste("Employed ~ Mother * Post * WFH_Exposure + Mother:GilNK +",
                       paste(controls, collapse = " + "))),
-    data = ddd_df, cluster = ~IDPUF
+    data = ddd_df, cluster = cluster_formula
   )
   # GilNK's main effect is already absorbed into the cell FE here; Mother:GilNK is not (the FE
   # groups by GilNK^TeudaGvoha^MachozMegurim jointly, not by an individual's own Mother status
@@ -101,7 +106,7 @@ run_ddd_age_interacted <- function(cleaned_df, exposure_cells, controls = DEFAUL
     as.formula(paste("Employed ~ Mother * Post * WFH_Exposure + Mother:GilNK +",
                       paste(other_controls, collapse = " + "),
                       "|", paste(cell_fe_vars, collapse = "^"))),
-    data = ddd_df, cluster = ~IDPUF
+    data = ddd_df, cluster = cluster_formula
   )
 
   print(etable(additive, fe,
@@ -156,6 +161,7 @@ run_ddd_reweighted <- function(cleaned_df, exposure_cells, controls = DEFAULT_CO
 
   cell_fe_vars   <- c("GilNK", "TeudaGvoha", "MachozMegurim")
   other_controls <- setdiff(controls, cell_fe_vars)
+  cluster_formula <- as.formula(paste("~", paste(cell_fe_vars, collapse = "^")))
 
   # Weights are keyed on (WFH_Exposure quartile x Mother x GilNK), a triple that exists
   # identically pre- and post-period, so the same pre-period-derived weight applies to every row
@@ -179,12 +185,12 @@ run_ddd_reweighted <- function(cleaned_df, exposure_cells, controls = DEFAULT_CO
 
   additive <- feols(
     as.formula(paste("Employed ~ Mother * Post * WFH_Exposure +", paste(controls, collapse = " + "))),
-    data = ddd_df, weights = ~rake_weight, cluster = ~IDPUF
+    data = ddd_df, weights = ~rake_weight, cluster = cluster_formula
   )
   fe <- feols(
     as.formula(paste("Employed ~ Mother * Post * WFH_Exposure +", paste(other_controls, collapse = " + "),
                       "|", paste(cell_fe_vars, collapse = "^"))),
-    data = ddd_df, weights = ~rake_weight, cluster = ~IDPUF
+    data = ddd_df, weights = ~rake_weight, cluster = cluster_formula
   )
 
   print(etable(additive, fe,
