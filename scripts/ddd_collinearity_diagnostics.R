@@ -45,3 +45,36 @@ check_spec1_collinearity <- function(ddd_df, cell_fe_vars, controls) {
     condition_number         = condition_number
   ))
 }
+
+# Generic safety net for every OTHER feols()/lm() fit in the pipeline: check_spec1_collinearity()
+# above only ever covered the primary DDD's Spec 1, by design (it's specifically diagnosing that
+# spec's own known WFH_Exposure/cell-control overlap). Nothing previously inspected any other
+# fitted model for a silently-dropped-by-collinearity variable.
+#
+# IMPORTANT, verified empirically against the fixest version this project uses: a collinear
+# variable is NOT left in coef() as an NA-valued entry -- fixest removes it from coef() entirely
+# (confirmed: feols(y ~ x1 + x2) with x2 <- x1 gives coef() = c("(Intercept)", "x1") only, and
+# is.na(coef(m)) is all FALSE). The reliable accessor is the fitted model's own $collin.var, which
+# fixest populates with exactly the dropped variable names (NULL/character(0) when nothing was
+# dropped). An earlier version of this check used is.na(coef(...)) and would have silently done
+# NOTHING -- always worth re-verifying a third-party package's actual behavior instead of assuming
+# it from a description.
+#
+# expected_drops lets a caller name variables it ALREADY KNOWS will be dropped by design (e.g.
+# main.R's Spec 2: WFH_Exposure's bare main effect is intentionally collinear with the interacted
+# cell FE -- see main.R's own comment and test-primary_ddd_mechanics.R). Only UNEXPECTED drops
+# trigger a warning; warning(), not stop(), since killing the whole main.R run over one collinear
+# coefficient in a robustness spec would be disproportionate -- matches this codebase's existing
+# non-destructive convention (e.g. calibrate_isco_exposure() keeps a theoretical value rather than
+# aborting).
+check_for_dropped_coefficients <- function(model, model_name, expected_drops = character(0)) {
+  dropped <- model$collin.var
+  unexpected <- setdiff(dropped, expected_drops)
+  if (length(unexpected) > 0) {
+    warning(sprintf(
+      "check_for_dropped_coefficients: %s had %d unexpected variable(s) dropped by collinearity: %s",
+      model_name, length(unexpected), paste(unexpected, collapse = ", ")
+    ))
+  }
+  invisible(dropped)
+}

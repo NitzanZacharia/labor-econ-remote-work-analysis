@@ -99,6 +99,15 @@ fixture_2019 <- bind_rows(
   make_row(2019018, 2019, 2, 2, 0, 0, 1, NA, 1, 1, 1, 1, 117, 4, 1, 1, 1, 1, 0),
   # filtered out: age group above range (GilNK==8)
   make_row(2019019, 2019, 2, 8, 0, 0, 1, NA, 1, 1, 1, 1, 118, 5, 1, 1, 1, 1, 0),
+  # WorkHoursCont-Employed-gating fix: codes 1 and 2 were previously represented ONLY by
+  # non-employed rows (2019002 Muasak==2, 2019003 Muasak==NA above) -- gating WorkHoursCont on
+  # Employed flips those two rows' expected value to NA, leaving codes 1/2 with no EMPLOYED
+  # exemplar for the "bins map to median" test. These two rows are dedicated employed (Muasak==1)
+  # exemplars for codes 1 and 2, so that test keeps full 0-10 coverage without weakening what it
+  # checks (2019002/2019003 are left untouched -- they still serve their original Employed-
+  # derivation edge-case purpose).
+  make_row(2019020, 2019, 2, 4, 0, 0, 1, NA, 1, 1, 1, 1, 120, 1, 1, 1, 1, 1, 0),
+  make_row(2019021, 2019, 2, 5, 0, 0, 1, NA, 2, 2, 2, 2, 121, 2, 1, 2, 2, 2, 0),
   # Checkpoint 5 (Gender Placebo Test): Min==1 (men) rows. Invisible to every existing test that
   # calls load_and_clean_data(fixtures_dir) with the default sex_filter="women" (excluded by the
   # same Min filter that already excludes IDPUF 2019017 above) -- only surfaced when

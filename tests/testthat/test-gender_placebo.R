@@ -26,7 +26,9 @@ test_that("load_and_clean_data(sex_filter = 'invalid') errors via match.arg", {
 })
 
 test_that("run_gender_placebo returns the documented structure on fixture data", {
-  out <- capture.output(res <- run_gender_placebo(fixtures_dir))
+  # suppressWarnings: same fixture-sparsity-induced collinearity check_for_dropped_coefficients()
+  # now surfaces for basic_reg() on the small male subsample (see test-basic_regression.R's note).
+  out <- capture.output(res <- suppressWarnings(run_gender_placebo(fixtures_dir)))
   expect_type(res, "list")
   expect_true(all(c("cleaned_men", "result") %in% names(res)))
   expect_true(all(res$cleaned_men$Min == 1))
@@ -40,7 +42,7 @@ test_that("run_gender_placebo skips the DDD placebo gracefully when no exposure 
   # exposure_csv_path won't resolve from testthat's working directory. Must NOT error -- that's
   # the whole point of the file.exists() guard -- and the original documented structure/behavior
   # (cleaned_men, result) must be completely unaffected.
-  out <- capture.output(res <- run_gender_placebo(fixtures_dir))
+  out <- capture.output(res <- suppressWarnings(run_gender_placebo(fixtures_dir)))
   expect_type(res, "list")
   expect_true(all(c("cleaned_men", "result", "ddd_placebo") %in% names(res)))
   expect_true(all(res$cleaned_men$Min == 1))

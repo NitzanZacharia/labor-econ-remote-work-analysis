@@ -9,7 +9,9 @@ test_that("basic_reg returns the documented structure and fits on fixture data",
   # enough that fixest can legitimately drop the Mother:Post term to collinearity (an artifact of
   # fixture size, not a defect -- this never happens on the real 372k-row dataset). The exact
   # DiD coefficient itself is checked below on a purpose-built synthetic design instead.
-  out <- capture.output(res <- basic_reg(cleaned))
+  # basic_reg()'s own check_for_dropped_coefficients() now surfaces this as a warning -- suppressed
+  # here since it's this exact anticipated fixture-sparsity artifact, not a new finding.
+  out <- capture.output(res <- suppressWarnings(basic_reg(cleaned)))
   expect_type(res, "list")
   expect_true(all(c("table", "models") %in% names(res)))
   expect_s3_class(res$models$employed, "fixest")

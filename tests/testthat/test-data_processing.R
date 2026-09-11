@@ -29,12 +29,18 @@ test_that("Employed: Muasak 1 -> 1; Muasak 2 -> 0; Muasak NA -> 0; never NA", {
   expect_equal(sum(is.na(cleaned$Employed)), 0)
 })
 
-test_that("WorkHoursCont: bins 0-10 map to their fixed range median", {
+test_that("WorkHoursCont: bins 0-10 map to their fixed range median, among employed rows", {
+  # Employed == 1 restriction matches WorkHoursCont's own gating (see the dedicated gating test
+  # below): a non-employed row with a populated ShaotAvodaBederechKlalNK code is correctly NA now,
+  # not the bin median, so it must be excluded here rather than making this loop's `all(vals == ...)`
+  # spuriously fail. 2019020/2019021 are dedicated employed exemplars for codes 1/2 specifically
+  # because the only other fixture rows with those codes (2019002, 2019003) are non-employed.
   hour_bin_median <- c(`0` = 0, `1` = 4, `2` = 11, `3` = 18, `4` = 25.5, `5` = 32,
                         `6` = 37, `7` = 42, `8` = 47, `9` = 54.5, `10` = 78.5)
   for (code in 0:10) {
     vals <- cleaned$WorkHoursCont[cleaned$ShaotAvodaBederechKlalNK == code &
-                                     !is.na(cleaned$ShaotAvodaBederechKlalNK)]
+                                     !is.na(cleaned$ShaotAvodaBederechKlalNK) &
+                                     cleaned$Employed == 1]
     expect_gt(length(vals), 0)
     expect_true(all(vals == hour_bin_median[[as.character(code)]]))
   }
@@ -44,6 +50,19 @@ test_that("WorkHoursCont: code 99 -> NA", {
   vals <- cleaned$WorkHoursCont[cleaned$ShaotAvodaBederechKlalNK == 99]
   expect_gt(length(vals), 0)
   expect_true(all(is.na(vals)))
+})
+
+test_that("WorkHoursCont: NA for non-employed rows regardless of their raw hours code", {
+  # 2019002 (Muasak==2, code 1), 2019003 (Muasak==NA, code 2), 2021003 (Muasak==2, code 0),
+  # 2021004 (Muasak==NA, code 9) all have a populated ShaotAvodaBederechKlalNK but are not
+  # employed -- previously this mapped straight to a literal number (e.g. bin 0 -> 0.0),
+  # indistinguishable from an employed person reporting that hours bin.
+  non_employed_with_code <- c(2019002, 2019003, 2021003, 2021004)
+  by_id <- function(id) cleaned$WorkHoursCont[cleaned$IDPUF == id]
+  for (id in non_employed_with_code) {
+    expect_equal(cleaned$Employed[cleaned$IDPUF == id], 0L)
+    expect_true(is.na(by_id(id)), info = paste("IDPUF", id))
+  }
 })
 
 test_that("WorkHoursCont: codes 11/12 are imputed from the matching bin range's median WITHIN the same Post period as the row being imputed", {
@@ -57,7 +76,11 @@ test_that("WorkHoursCont: codes 11/12 are imputed from the matching bin range's 
   # implementation would fold those into the code-12 median (giving 42), but the period-restricted
   # implementation must not -- expected_12 here (47) is deliberately different from that pooled
   # value, so a regression back to pooled imputation would be caught.
-  post0 <- cleaned[cleaned$Post == 0, ]
+  # Employed == 1 restriction mirrors the donor-pool gate in data_processing.R -- without it,
+  # 2019002/2019003 (non-employed, codes 1/2) would double-count against 2019020/2019021 (the
+  # employed exemplars added for the WorkHoursCont-gating fix) and this test's own expectation
+  # would silently diverge from what the real, gated computation produces.
+  post0 <- cleaned[cleaned$Post == 0 & cleaned$Employed == 1, ]
   under35_codes <- post0$ShaotAvodaBederechKlalNK[post0$ShaotAvodaBederechKlalNK %in% 1:5]
   over35_codes  <- post0$ShaotAvodaBederechKlalNK[post0$ShaotAvodaBederechKlalNK %in% 6:10]
   expected_11 <- median(hour_bin_median[as.character(under35_codes)], na.rm = TRUE)

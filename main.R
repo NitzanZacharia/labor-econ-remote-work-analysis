@@ -224,6 +224,11 @@ ddd_primary_fe <- feols(
                     "|", paste(cell_fe_vars, collapse = "^"))),
   data = ddd_df, cluster = cell_cluster_formula
 )
+check_for_dropped_coefficients(ddd_primary_additive, "primary DDD Spec 1 (additive controls)")
+# WFH_Exposure's bare main effect is EXPECTED to drop here -- see the comment above Spec 2's
+# formula. Only an additional, unexpected drop should warn.
+check_for_dropped_coefficients(ddd_primary_fe, "primary DDD Spec 2 (interacted cell FE)",
+                                expected_drops = "WFH_Exposure")
 primary_ddd_table <- etable(
   ddd_primary_additive, ddd_primary_fe,
   headers = c("Spec 1: additive controls", "Spec 2: interacted cell FE"), digits = 4

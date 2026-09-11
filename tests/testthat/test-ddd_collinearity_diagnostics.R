@@ -86,3 +86,57 @@ test_that("the high-collinearity design reports a higher VIF and a higher condit
 
   expect_gt(res_high$vif_wfh_exposure, res_low$vif_wfh_exposure)
 })
+
+# ── check_for_dropped_coefficients() ──────────────────────────────────────────────────────────
+# fixest does NOT leave a collinear variable in coef() as an NA-valued entry -- it removes it from
+# coef() entirely and records the dropped name(s) in the model's own $collin.var. These tests pin
+# that behavior down directly (so a future fixest upgrade that changes it is caught here, not
+# silently) rather than just testing check_for_dropped_coefficients() against an assumption.
+
+test_that("a perfectly collinear regressor is absent from coef() (not NA) and recorded in $collin.var", {
+  synth <- tibble::tibble(x1 = rnorm(50), y = rnorm(50))
+  synth$x2 <- synth$x1  # perfectly collinear with x1
+  m <- suppressWarnings(feols(y ~ x1 + x2, data = synth))
+
+  expect_false("x2" %in% names(coef(m)))
+  expect_false(any(is.na(coef(m))))  # confirms is.na(coef(...)) would NOT have caught this
+  expect_true("x2" %in% m$collin.var)
+})
+
+test_that("check_for_dropped_coefficients warns, naming the dropped variable, when nothing is expected", {
+  synth <- tibble::tibble(x1 = rnorm(50), y = rnorm(50))
+  synth$x2 <- synth$x1
+  m <- suppressWarnings(feols(y ~ x1 + x2, data = synth))
+
+  expect_warning(
+    check_for_dropped_coefficients(m, "test model"),
+    "x2"
+  )
+})
+
+test_that("check_for_dropped_coefficients does not warn when the only drop is in expected_drops", {
+  synth <- tibble::tibble(x1 = rnorm(50), y = rnorm(50))
+  synth$x2 <- synth$x1
+  m <- suppressWarnings(feols(y ~ x1 + x2, data = synth))
+
+  expect_no_warning(check_for_dropped_coefficients(m, "test model", expected_drops = "x2"))
+})
+
+test_that("check_for_dropped_coefficients still warns on an UNEXPECTED extra drop alongside an expected one", {
+  synth <- tibble::tibble(x1 = rnorm(50), y = rnorm(50))
+  synth$x2 <- synth$x1        # expected drop
+  synth$x3 <- synth$x1 * 2    # also collinear with x1 -- unexpected
+  m <- suppressWarnings(feols(y ~ x1 + x2 + x3, data = synth))
+
+  expect_warning(
+    check_for_dropped_coefficients(m, "test model", expected_drops = "x2"),
+    "x3"
+  )
+})
+
+test_that("check_for_dropped_coefficients does not warn on a clean, non-collinear fit", {
+  synth <- tibble::tibble(x1 = rnorm(50), x2 = rnorm(50), y = rnorm(50))
+  m <- feols(y ~ x1 + x2, data = synth)
+
+  expect_no_warning(check_for_dropped_coefficients(m, "test model"))
+})

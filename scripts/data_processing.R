@@ -170,12 +170,24 @@ load_and_clean_data <- function(folder_path, sex_filter = c("women", "men")) {
     # (irregular-hours workers' typical hours changing after WFH adoption) the intensive-margin
     # DiD (intensive_margin_regression.R) is designed to detect. Code 99 (irregular, unknown
     # extent) -> NA, same as before.
+    #
+    # Gated on Employed == 1: "usual weekly hours" is only meaningful for someone who has a job.
+    # Previously ungated, a non-employed row with a populated ShaotAvodaBederechKlalNK code (a real
+    # possibility, not just a synthetic edge case -- e.g. a data-entry quirk where the hours item
+    # wasn't nulled out) got a literal number (bin 0 -> 0.0), indistinguishable from an employed
+    # person who reported the lowest hours bin. Every existing downstream consumer already
+    # restricts to Employed == 1 before touching WorkHoursCont (intensive_margin_regression.R,
+    # intensive_margin_lee_bounds.R), so this doesn't change any regression result -- it just
+    # makes the variable itself correctly undefined for the population it was never meant to
+    # describe. The code-11/12 donor pool is restricted to Employed == 1 rows for the same reason
+    # ("median hours among regular ... workers", per the comment above).
     group_by(Post) %>%
     mutate(
       WorkHoursCont = case_when(
+        Employed != 1                      ~ NA_real_,
         ShaotAvodaBederechKlalNK %in% 0:10 ~ .hour_bin_val,
-        ShaotAvodaBederechKlalNK == 11      ~ median(.hour_bin_val[ShaotAvodaBederechKlalNK %in% 1:5], na.rm = TRUE),
-        ShaotAvodaBederechKlalNK == 12      ~ median(.hour_bin_val[ShaotAvodaBederechKlalNK %in% 6:10], na.rm = TRUE),
+        ShaotAvodaBederechKlalNK == 11      ~ median(.hour_bin_val[Employed == 1 & ShaotAvodaBederechKlalNK %in% 1:5], na.rm = TRUE),
+        ShaotAvodaBederechKlalNK == 12      ~ median(.hour_bin_val[Employed == 1 & ShaotAvodaBederechKlalNK %in% 6:10], na.rm = TRUE),
         .default = NA_real_
       )
     ) %>%

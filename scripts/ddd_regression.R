@@ -6,6 +6,7 @@ library(tidyverse)
 library(fixest)
 source(file.path("scripts", "data_processing.R"))
 source(file.path("scripts", "basic_regression.R"))
+source(file.path("scripts", "ddd_collinearity_diagnostics.R"))
 
 run_ddd_regression <- function(cleaned_df, exposure_index, controls = DEFAULT_CONTROLS) {
 
@@ -29,6 +30,7 @@ run_ddd_regression <- function(cleaned_df, exposure_index, controls = DEFAULT_CO
   # individual-level clustering). Cluster on the occupation code instead, the level the regressor
   # of interest actually varies at.
   reg_ddd <- feols(formula_ddd, data = df_ddd, cluster = ~MishlachYad_ISCO_08_2)
+  check_for_dropped_coefficients(reg_ddd, "run_ddd_regression()'s Model 1 (triple interaction)")
 
   table_ddd <- etable(reg_ddd, headers = c("Employed (DDD)"), digits = 4)
   print(table_ddd)

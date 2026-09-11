@@ -2,6 +2,7 @@
 library(tidyverse)
 library(fixest)
 source(file.path("scripts", "data_processing.R"))
+source(file.path("scripts", "ddd_collinearity_diagnostics.R"))
 
 basic_reg <- function(cleaned_data) {
   
@@ -21,7 +22,8 @@ basic_reg <- function(cleaned_data) {
   
   # ──  Run regression ───────────────────────────────────────────────────────
   reg_employed <- feols(formula_employed, data = cleaned_data, cluster = ~IDPUF)
-  
+  check_for_dropped_coefficients(reg_employed, "basic_reg()'s Employed model")
+
   # ──  Display and return results ─────────────────────────────────────────────
   table_basic <- etable(reg_employed, 
                         headers = c("Employed"),

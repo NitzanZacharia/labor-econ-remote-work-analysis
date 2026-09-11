@@ -23,7 +23,9 @@ test_that("the full pipeline runs end-to-end against fixtures without error, mir
   out <- capture.output(comp_res <- run_comparative_stats(cleaned))
   expect_type(comp_res, "list")
 
-  out <- capture.output(reg_res <- basic_reg(cleaned))
+  # suppressWarnings: the pooled fixture, like the Jewish/Arab subsamples below, is small enough
+  # that check_for_dropped_coefficients() legitimately fires on this fixture-sparsity artifact.
+  out <- capture.output(reg_res <- suppressWarnings(basic_reg(cleaned)))
   expect_s3_class(reg_res$models$employed, "fixest")
 
   out <- capture.output(jewish_res <- suppressWarnings(basic_reg(dplyr::filter(cleaned, Leom == 1))))
