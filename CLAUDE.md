@@ -32,5 +32,4 @@
   is a pre-`scripts/`-restructure planning doc, kept only for history.
 - Every change that touches a function used elsewhere (data_processing.R, the controls list)
   needs the full `Rscript run_tests.R` suite green before you consider the task done.
-- Never commit anything derived from real CBS microdata (cell counts, tables, plots) without a
-  human explicitly reviewing it first — see the disclosure-risk note in Checkpoint 9 below.
+
