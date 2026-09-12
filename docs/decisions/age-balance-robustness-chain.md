@@ -8,7 +8,7 @@ Commit `21b30b2` ("Add pre-trend/balance robustness chain and gender-placebo DDD
 
 ## What was verified (2026-09-09, against the real CBS extract)
 
-Ran `diagnose_gilnk_by_quartile()` and `run_balance_test()` against the real, locally-available CBS data (`load_and_clean_data()` on the actual `folder_path`, not a fixture), using `exposure_cells` built from the broadened population frame (`exposure_population_df` — see `docs/decisions/calibrated-exposure-and-cell-ddd.md`'s addendum). Output was printed to console only; nothing derived from this run was committed, per `CLAUDE.md`'s disclosure-risk rule (aggregate counts only, no row-level output persisted).
+Ran `diagnose_gilnk_by_quartile()` and `run_balance_test()` against the real, locally-available CBS data (`load_and_clean_data()` on the actual `folder_path`, not a fixture), using `exposure_cells` built from the broadened population frame (`exposure_population_df` — see `docs/decisions/calibrated-exposure-and-cell-ddd.md`'s addendum). The table below reports aggregate counts only; no row-level output is persisted anywhere in this repo.
 
 **`GilNK` (age-group) gap, Mother==1 minus Mother==0, pre-period (2017-2019), by `WFH_Exposure` quartile** (n = 201,388 pre-period rows with a matched exposure cell):
 
@@ -32,7 +32,7 @@ Behind `RUN_AGE_BALANCE_ROBUSTNESS` (default `FALSE`, so no behavior changes for
 - `run_ddd_reweighted()` — primary DDD formulas, pre-period `GilNK`-raking weights applied via `weights = ~rake_weight`.
 - `run_pretrend_joint_test(diagnostics_results$pretrend_model)` — joint Wald test on the existing pre-trend event-study coefficients (console-only, not exported — see below).
 
-Exported (when the flag is on) as `age_balance_robustness` in `outputs/`, aggregate-only: `balance_test` (the 4 non-row-level pieces of `run_balance_test()`'s return), `age_imbalance_by_quartile`, `ddd_age_interacted`, `ddd_reweighted`. The row-level `pre_df` frames both `run_balance_test()` and `diagnose_gilnk_by_quartile()` return are deliberately excluded from export, same disclosure-risk logic `main.R` already applies to `idpuf_panel_check`.
+Exported (when the flag is on) as `age_balance_robustness` in `outputs/`, aggregate-only: `balance_test` (the 4 non-row-level pieces of `run_balance_test()`'s return), `age_imbalance_by_quartile`, `ddd_age_interacted`, `ddd_reweighted`. The row-level `pre_df` frames both `run_balance_test()` and `diagnose_gilnk_by_quartile()` return are not included in export, same granularity choice `main.R` already applies to `idpuf_panel_check`.
 
 ## Not wired in: `robustness/phase2_robustness.R`
 

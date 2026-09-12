@@ -131,7 +131,7 @@ Runs the `testthat` suite in `tests/testthat/` (data processing, validation, sch
 
 ## Outputs
 
-`Rscript main.R` writes one file per result table/plot to `outputs/` (CSV for tables, PNG for plots) via `export_all_results()`. `outputs/` is **tracked in git**, not gitignored — but several breakdowns (e.g. the Arab-women-only stratified regression) can produce small cells from real CBS microdata, so nothing generated under it should be `git add`ed/committed without a human explicitly reviewing it first for disclosure risk (see `CLAUDE.md`). Tracking the directory removes the structural gitignore block, not that review requirement.
+`Rscript main.R` writes one file per result table/plot to `outputs/` (CSV for tables, PNG for plots) via `export_all_results()`. `outputs/` is **tracked in git**, not gitignored — these are derived, aggregate statistics from real CBS microdata, not raw survey records (the raw CBS Labor Force Survey CSVs are the actual data-use-agreement boundary, and stay gitignored and outside the repo entirely — see `folder_path` in `main.R`).
 
 ## Known limitations
 

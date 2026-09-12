@@ -8,7 +8,7 @@ This document describes the system that implements the research design in [`moth
 
 ## 2. System Architecture
 
-**Execution model**: a single-machine, local R session (RStudio or `Rscript`). There is no database, API, scheduler, or CI — `main.R` is the sole orchestrator, run manually. State between runs is a cached file (`cleaned_df.rds`, invalidated automatically via a hash of `data_processing.R` — not just its own existence). Every result is both printed to the console and exported to `outputs/` (gitignored; disclosure-risk-gated — see §4.1).
+**Execution model**: a single-machine, local R session (RStudio or `Rscript`). There is no database, API, scheduler, or CI — `main.R` is the sole orchestrator, run manually. State between runs is a cached file (`cleaned_df.rds`, invalidated automatically via a hash of `data_processing.R` — not just its own existence). Every result is both printed to the console and exported to `outputs/` (tracked in git — these are derived, aggregate statistics, not the raw survey CSVs, which stay outside the repo entirely per `folder_path` in `main.R`).
 
 **Layers:**
 
@@ -27,7 +27,7 @@ This document describes the system that implements the research design in [`moth
 | Descriptive Mismatch Exhibit | `israeli_market_mismatch.R`, `run_mismatch.R` | `check_market_mismatch()` — a thin, descriptive-only wrapper around `calibrate_isco_exposure()` reporting how far realized Israeli WFH adoption diverges from the external teleworkability benchmark, by occupation. Invoked via `run_mismatch.R` against a cached `cleaned_df.rds`, not sourced by `main.R`. |
 | Diagnostics Layer | `Diagnostics.R` | `run_diagnostics()` — 2×2 DiD table, parallel-trends event-study plot (Mother×Year, ref=2019), missing-value audits. |
 | Orchestration Layer | `main.R` | Sources every module and calls them in sequence; the only entry point. |
-| Output/Export Layer | `export_results.R` | `export_all_results()` — walks every analysis function's `invisible(list(...))` return and writes each data frame to CSV, each `ggplot` to PNG, under `outputs/` (gitignored; disclosure-risk review required before anything derived from it is committed). Called once, at the very end of `main.R`, covering every result including §8's exposure/DDD output. |
+| Output/Export Layer | `export_results.R` | `export_all_results()` — walks every analysis function's `invisible(list(...))` return and writes each data frame to CSV, each `ggplot` to PNG, under `outputs/` (tracked in git). Called once, at the very end of `main.R`, covering every result including §8's exposure/DDD output. |
 
 **Layer diagram:**
 
@@ -96,7 +96,7 @@ The lifecycle of the labor force data, from raw ingestion through to regression 
    - **Primary DDD** — `Employed ~ Mother*Post*WFH_Exposure + Mother:GilNK + controls`, cell-based exposure, two specs (additive controls; interacted cell fixed effects — the standard fix for this shift-share regressor's collinearity with its own controls), clustered on the `(GilNK, TeudaGvoha, MachozMegurim)` cell. `Mother:GilNK` (added 2026-09-11) corrects for a confirmed pre-period age imbalance between mothers/non-mothers whose size varies by exposure quartile — see `docs/decisions/age-balance-robustness-chain.md`; it doesn't change the `Mother:Post:WFH_Exposure` conclusion but surfaces its own real age-heterogeneous-penalty finding. `check_spec1_collinearity()` reports the additive spec's collinearity at runtime; `check_for_dropped_coefficients()` guards both specs generically.
    - **Robustness DDDs** — `run_ddd_regression()` run three times (calibrated, external, realized occupation-level indices), each also reporting a dropped-vs-retained occupation exposure comparison for its second-stage mechanism regression.
    - **Age-balance robustness chain** — `RUN_AGE_BALANCE_ROBUSTNESS` flag (default `FALSE`) in `main.R`: `run_balance_test()`, `diagnose_gilnk_by_quartile()`, `run_ddd_age_interacted()`, `run_ddd_reweighted()`, `run_pretrend_joint_test()`. See `docs/decisions/age-balance-robustness-chain.md` for the real-data verification of the `GilNK` imbalance this chain checks for.
-8. **Export** — `export_all_results()` writes every result above to `outputs/` in one pass at the end of `main.R` (CSV for tables, PNG for plots). `idpuf_panel_check`'s per-`IDPUF` tables are deliberately excluded (row-level identifiable data; only its console summary is surfaced), as are the age-balance chain's row-level `pre_df` frames — everything else, including the newest WFH-exposure/DDD and (when the flag is on) age-balance results, is included.
+8. **Export** — `export_all_results()` writes every result above to `outputs/` in one pass at the end of `main.R` (CSV for tables, PNG for plots). `idpuf_panel_check`'s per-`IDPUF` tables and the age-balance chain's row-level `pre_df` frames are not included (per-person granularity isn't needed for the aggregate results this export step produces; only `idpuf_panel_check`'s console summary is surfaced) — everything else, including the newest WFH-exposure/DDD and (when the flag is on) age-balance results, is included.
 
 ## 4. Needed Components
 

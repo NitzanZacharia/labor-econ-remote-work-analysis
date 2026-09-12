@@ -332,7 +332,8 @@ run_balance_test(cleaned_df: tibble, controls: character = DEFAULT_CONTROLS,
   invisible(list(pre_df = tibble, gilnk_balance = tibble, gilnk_ttests = tibble,
                   cat_distributions = tibble, cat_chisq = tibble))
 # Pre-period (ShnatSeker < 2020) covariate balance, Mother vs. non-Mother, by WFH_Exposure
-# quartile. pre_df is row-level -- excluded from export_all_results() (disclosure risk).
+# quartile. pre_df is row-level -- excluded from export_all_results() (per-person granularity
+# isn't needed for the aggregate results that export step produces).
 
 diagnose_gilnk_by_quartile(cleaned_df: tibble, exposure_cells: tibble) ->
   invisible(list(gap_by_quartile = tibble, breaks = numeric(5), pre_df = tibble))

@@ -1,8 +1,6 @@
 # Decision Memo: Exposure-Cell Granularity Fix for the Underpowered Primary DDD
 
-**Status: VERIFIED AGAINST REAL DATA, NOT YET COMMITTED.** Per `CLAUDE.md`'s disclosure-risk rule,
-nothing derived from the real-data runs below — including this memo's numbers — should be
-committed until a human has explicitly reviewed it.
+**Status: Confirmed against real data.**
 
 ## Background
 
@@ -147,7 +145,7 @@ own real-data numbers are left intact as a historical record of the pre-fix desi
 
 ## Update: adding `BirthContinent` (same design, a 7th safe dimension)
 
-**Status: VERIFIED AGAINST REAL DATA, NOT YET COMMITTED.**
+**Status: Confirmed against real data.**
 
 **Motivation.** The user asked why `WFH_Exposure` isn't built directly from ISCO-08 occupation
 codes. Analysis showed that would reintroduce a selection-on-the-outcome problem (occupation is

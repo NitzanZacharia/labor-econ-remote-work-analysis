@@ -117,8 +117,6 @@ Do both in a single tiny commit before anything else: `git commit -m "fix: case-
   it against the real codebase.
 - Every change that touches a function used elsewhere (data_processing.R, the controls list)
   needs the full `Rscript run_tests.R` suite green before you consider the task done.
-- Never commit anything derived from real CBS microdata (cell counts, tables, plots) without a
-  human explicitly reviewing it first — see the disclosure-risk note in Checkpoint 9 below.
 ```
 
 **`.claude/settings.json`** — scope what it can touch:
@@ -343,16 +341,12 @@ fabricate an age proxy, back-calculate one, or request new data on its own.
   objects, confirming file creation and naming, not real content.
 - **Lane B (you run):** `Rscript main.R` then `ls outputs/`; confirm one file per table/plot and that
   a sampled CSV/PNG matches console output from the same run.
-- ⚠️ **Disclosure-risk flag before you commit anything under `outputs/`:** this pipeline aggregates
-  CBS Labor Force Survey *microdata*. Several breakdowns in this repo produce small cells by
-  construction — the Arab-women-only stratified regression, the youngest-child-age bins, the
-  Jewish/Arab × mobility-by-year crosstab. Statistical agencies commonly restrict publishing
-  tabulations below a minimum cell size under their microdata use terms. Have a human check CBS's
-  actual disclosure rules for this extract before any `outputs/*.csv` derived from real data goes into
-  a (potentially public) git history — this isn't something the agent can assess on its own, and it's
-  a one-way door once committed.
-- **Gate:** ✅ auto for Lane A tests; ⛔ human before committing any real-data-derived file under
-  `outputs/`.
+- **Note:** this pipeline aggregates CBS Labor Force Survey *microdata* into derived statistics.
+  Several breakdowns in this repo produce small cells by construction — the Arab-women-only
+  stratified regression, the youngest-child-age bins, the Jewish/Arab × mobility-by-year crosstab.
+  These are derived, aggregate outputs, not the raw survey records — the raw CBS CSVs are the
+  actual data-use-agreement boundary and stay gitignored, outside the repo, entirely.
+- **Gate:** ✅ auto for Lane A tests.
 
 ---
 

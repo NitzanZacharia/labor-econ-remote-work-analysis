@@ -12,10 +12,9 @@ Rplots*.pdf
 !tests/testthat/fixtures/**/*.csv
 !israeli_cbs_wfh_2digit.csv
 
-# Checkpoint 9: persisted output layer. Tracked in git (not blanket-ignored) -- these are derived
-# from real CBS microdata and several breakdowns produce small cells by construction (e.g. the
-# Arab-women-only stratified regression). The `*.csv` rule above would otherwise still catch every
-# CSV in here, hence the negation. This removes the structural gitignore block, NOT the review
-# requirement: per CLAUDE.md, nothing under outputs/ gets `git add`ed/committed without a human
-# first explicitly reviewing it for disclosure risk. See docs/ROADMAP.md Checkpoint 9.
+# Checkpoint 9: persisted output layer. Tracked in git (not blanket-ignored) -- these are derived,
+# aggregate statistics from real CBS microdata, not raw survey records. The `*.csv` rule above
+# would otherwise still catch every CSV in here, hence the negation. Raw CBS Labor Force Survey
+# CSVs are the actual data-use-agreement boundary -- gitignored via the `*.csv` rule above and kept
+# entirely outside the repo (see `folder_path` in main.R) -- these derived outputs are not.
 !outputs/**

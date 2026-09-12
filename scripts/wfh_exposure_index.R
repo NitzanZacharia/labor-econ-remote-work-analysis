@@ -64,9 +64,8 @@ build_wfh_exposure_index <- function(cleaned_df, isco_col = "MishlachYad_ISCO_08
     ) %>%
     arrange(desc(wfh_exposure))
 
-  # Occupations with a handful of observations contribute a near-random exposure value, and are
-  # also the ones that carry real disclosure risk if the index is ever exported (see CLAUDE.md on
-  # outputs/). min_n = 0 keeps the function a pure aggregator by default; pass min_n = 200 for a
+  # Occupations with a handful of observations contribute a near-random, unreliable exposure value.
+  # min_n = 0 keeps the function a pure aggregator by default; pass min_n = 200 for a
   # publication-grade index built on the real microdata.
   if (min_n > 0) {
     n_thin <- sum(idx$n < min_n)

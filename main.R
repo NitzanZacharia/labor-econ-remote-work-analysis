@@ -397,10 +397,8 @@ if (RUN_EXPOSURE_POWER_DIAGNOSTICS) {
 
 # ── 9. Export results ─────────────────────────────────────────────────────────
 # idpuf_panel_check is deliberately NOT included here: its idpuf_years/idpuf_periods tables are
-# keyed by individual IDPUF, which is closer to raw identifiable microdata than the aggregate
-# tables everything else in this list produces -- per this project's disclosure-risk convention
-# (CLAUDE.md, Checkpoint 9), only its console-printed summary counts are surfaced, not a
-# persisted per-person roster.
+# per-IDPUF, a finer granularity than the aggregate tables everything else in this list produces --
+# only its console-printed summary counts are surfaced here, not a persisted per-person roster.
 results_to_export <- list(
   comparative_stats = comp_stats,
   basic_reg = baseline_results,
@@ -423,8 +421,8 @@ results_to_export <- list(
 
 if (RUN_AGE_BALANCE_ROBUSTNESS) {
   # Only the aggregate pieces of each result -- balance_check$pre_df / age_balance_diag$pre_df are
-  # row-level (one row per surveyed person) and deliberately excluded, same disclosure-risk logic
-  # as idpuf_panel_check above.
+  # row-level (one row per surveyed person) and deliberately excluded, same granularity choice as
+  # idpuf_panel_check above.
   results_to_export$age_balance_robustness <- list(
     balance_test = list(
       gilnk_balance     = balance_check$gilnk_balance,

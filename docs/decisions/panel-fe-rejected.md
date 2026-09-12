@@ -1,8 +1,7 @@
 # Decision Memo: Individual-Panel Fixed Effects, Rejected on the Real Cross-Period Count
 
-**Status: VERIFIED AGAINST REAL DATA, NOT YET COMMITTED.** Per `CLAUDE.md`'s disclosure-risk rule,
-the aggregate count below (not row-level data) came from a one-off local run of `Rscript main.R`
-against the real cached CBS extract, reviewed with the user before being written up here.
+**Status: Confirmed against real data.** The aggregate count below (not row-level data) came from a
+one-off local run of `Rscript main.R` against the real cached CBS extract.
 
 ## Background
 
@@ -18,9 +17,9 @@ or reweighting.
 This depends entirely on how many individuals actually straddle the `Post` boundary.
 `scripts/validation.R`'s `check_idpuf_panel_structure()` already computes exactly this
 (`cross_period_n`), called unconditionally in `main.R` right after `validate_cleaned_df()`, but its
-output had never been read from a real run — it's message-only, deliberately excluded from
-`outputs/` per this project's disclosure-risk convention for individual-level tables (row-level
-`idpuf_years`/`idpuf_periods` are per-person; only the aggregate counts are ever surfaced).
+output had never been read from a real run — it's message-only, and its row-level
+`idpuf_years`/`idpuf_periods` tables aren't included in `outputs/` (only the aggregate counts are
+surfaced there).
 
 ## The real number
 

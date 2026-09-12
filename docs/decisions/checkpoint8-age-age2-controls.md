@@ -29,7 +29,7 @@ Acquire additional raw data from CBS containing continuous age or birth year, me
 
 **Cons**
 - Requires new data acquisition — a data-sourcing/logistics task, not something resolvable in code, same category of blocker as Checkpoint 6's anchor-year question.
-- Exact age is often treated as more sensitive/re-identifying than the data already provided, which may affect what CBS is willing to release or under what terms — worth weighing alongside the disclosure-risk note already flagged for Checkpoint 9.
+- Exact age is often treated as more sensitive/re-identifying than the data already provided, which may affect what CBS is willing to release or under what terms.
 - Would require re-running Checkpoints 1–2 (validation, schema-drift) against the new extract before using it, and touching every regression function that currently references `GilNK` (five files: `basic_regression.R`, `basic_reg_compared_data.R`, `employment_by_child_age.R`, `Diagnostics.R`, `ddd_regression.R`, plus `DEFAULT_CONTROLS` itself).
 - Doesn't resolve the deeper tension with Part 3 §3: even if continuous age became available, the advisor's own more recent, hands-on feedback called for categorical dummies, not continuous controls — so acquiring the data wouldn't by itself settle which specification to actually use.
 

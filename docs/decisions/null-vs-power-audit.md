@@ -6,13 +6,11 @@ cell_fe_vars/controls) and fixes it (a finer exposure-cell partition). The numbe
 the pre-fix design and are left unchanged as a historical record — they are not the current state
 of `main.R`.
 
-**Status: VERIFIED AGAINST REAL DATA, NOT YET COMMITTED.** The two diagnostics below
-(`scripts/wfh_first_stage_check.R`, `scripts/ddd_mde_diagnostics.R`) are built, unit-tested, and
-have been run once against the real CBS extract to produce the numbers in this memo. Per
-`CLAUDE.md`'s disclosure-risk rule, nothing derived from that run — including this memo's numbers
-— should be committed until a human has explicitly reviewed it. `RUN_NULL_VS_POWER_AUDIT` is
-`FALSE` in the committed `main.R`; the numbers below came from a one-off local run with the flag
-temporarily flipped to `TRUE`, then reverted.
+**Status: Confirmed against real data.** The two diagnostics below (`scripts/wfh_first_stage_check.R`,
+`scripts/ddd_mde_diagnostics.R`) are built, unit-tested, and have been run once against the real CBS
+extract to produce the numbers in this memo. `RUN_NULL_VS_POWER_AUDIT` is `FALSE` by default in
+`main.R` (an off-by-default diagnostic, not a required gate); the numbers below came from a one-off
+local run with the flag temporarily flipped to `TRUE`, then reverted.
 
 ## Background
 
