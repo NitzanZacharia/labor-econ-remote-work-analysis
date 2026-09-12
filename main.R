@@ -22,6 +22,8 @@ source(file.path("scripts", "ddd_collinearity_diagnostics.R"))
 source(file.path("scripts", "ddd_regression.R"))
 source(file.path("scripts", "wfh_first_stage_check.R"))
 source(file.path("scripts", "ddd_mde_diagnostics.R"))
+source(file.path("scripts", "ddd_exposure_family_wald_test.R"))
+source(file.path("scripts", "ddd_exposure_synthesis.R"))
 
 # ── 2. Configure paths ────────────────────────────────────────────────────────
 message("Edit folder paths if needed!")
@@ -351,6 +353,34 @@ if (RUN_NULL_VS_POWER_AUDIT) {
   mde_fe       <- compute_ddd_mde(ddd_primary_fe, baseline_rate = baseline_employment_rate)
 }
 
+# ── 8g. Exposure-interaction power diagnostics (family Wald test + cross-measure synthesis) ────
+# Off by default, diagnostic layered on top of the primary DDD (8a) and robustness DDDs (8b-8d),
+# not a replacement for either -- same framing as 8e/8f. Two distinct questions neither the
+# per-coefficient tables nor the MDE audit (8f) answer on their own:
+# (1) run_ddd_exposure_family_wald_test(): is the null on Mother:Post:WFH_Exposure alone masking a
+#     jointly-significant signal across the whole {Mother:WFH_Exposure, Post:WFH_Exposure,
+#     Mother:Post:WFH_Exposure} family, which shares one correlated WFH_Exposure regressor?
+# (2) synthesize_ddd_triple_interaction(): pooling the triple-interaction estimate across all 5
+#     already-fitted DDD models (primary additive/FE + the 3 occupation-level robustness specs)
+#     via inverse-variance weighting, with Cochran's Q flagging whether that pooling is even valid
+#     given each model's different WFH_Exposure proxy and sample (see the function's own header
+#     comment for why the naive pooled SE is anti-conservative, not a standalone inference).
+RUN_EXPOSURE_POWER_DIAGNOSTICS <- FALSE
+if (RUN_EXPOSURE_POWER_DIAGNOSTICS) {
+  message("Running joint Wald test on the WFH_Exposure interaction family (primary DDD, both specs)...")
+  wald_family_additive <- run_ddd_exposure_family_wald_test(ddd_primary_additive)
+  wald_family_fe       <- run_ddd_exposure_family_wald_test(ddd_primary_fe)
+
+  message("Synthesizing Mother:Post:WFH_Exposure across all 5 fitted DDD models...")
+  ddd_triple_synthesis <- synthesize_ddd_triple_interaction(list(
+    primary_additive    = ddd_primary_additive,
+    primary_fe          = ddd_primary_fe,
+    occupation_calibrated = ddd_calibrated$models$ddd,
+    occupation_external   = ddd_external$models$ddd,
+    occupation_realized   = ddd_realized$models$ddd
+  ))
+}
+
 # ── 9. Export results ─────────────────────────────────────────────────────────
 # idpuf_panel_check is deliberately NOT included here: its idpuf_years/idpuf_periods tables are
 # keyed by individual IDPUF, which is closer to raw identifiable microdata than the aggregate
@@ -405,6 +435,24 @@ if (RUN_NULL_VS_POWER_AUDIT) {
     wfh_first_stage_table = wfh_first_stage$table,
     mde_additive           = mde_additive,
     mde_fe                 = mde_fe
+  )
+}
+
+if (RUN_EXPOSURE_POWER_DIAGNOSTICS) {
+  results_to_export$exposure_power_diagnostics <- list(
+    wald_family_additive = as.data.frame(wald_family_additive[c("stat", "p", "df1", "df2")]),
+    wald_family_fe       = as.data.frame(wald_family_fe[c("stat", "p", "df1", "df2")]),
+    triple_synthesis_per_model = ddd_triple_synthesis$per_model,
+    triple_synthesis_summary   = data.frame(
+      pooled_estimate = ddd_triple_synthesis$pooled_estimate,
+      pooled_se       = ddd_triple_synthesis$pooled_se,
+      pooled_p        = ddd_triple_synthesis$pooled_p,
+      q_stat          = ddd_triple_synthesis$q_stat,
+      q_df            = ddd_triple_synthesis$q_df,
+      q_p             = ddd_triple_synthesis$q_p,
+      heterogeneous   = ddd_triple_synthesis$heterogeneous,
+      most_precise_model = ddd_triple_synthesis$most_precise_model
+    )
   )
 }
 
