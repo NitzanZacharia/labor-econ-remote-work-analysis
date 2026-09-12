@@ -97,10 +97,30 @@ test_that("run_gender_ddd_placebo recovers a known Mother:Post:WFH_Exposure effe
   coefs_fe  <- names(coef(res$models$fe))
   expect_true("Mother:Post:WFH_Exposure" %in% coefs_add)
   expect_true("Mother:Post:WFH_Exposure" %in% coefs_fe)
+  # Mother:GilNK (added to main.R's primary DDD on 2026-09-11) must also be present here -- GilNK
+  # is a multi-level factor, so its interaction with Mother expands to one coefficient per
+  # non-reference level (e.g. "Mother:GilNK4"), not a single literal "Mother:GilNK" name.
+  expect_true(any(grepl("^Mother:GilNK", coefs_add)))
+  expect_true(any(grepl("^Mother:GilNK", coefs_fe)))
 
   # True injected effect is -1.5; both specs should recover the correct sign at minimum.
   expect_lt(unname(coef(res$models$additive)["Mother:Post:WFH_Exposure"]), 0)
   expect_lt(unname(coef(res$models$fe)["Mother:Post:WFH_Exposure"]), 0)
+})
+
+test_that("run_gender_ddd_placebo's formula stays in sync with main.R's primary DDD", {
+  # Regression guard for the 2026-09-11 drift this test was added to catch: main.R's primary DDD
+  # added `Mother:GilNK` to both its additive and cell-FE specs, but gender_placebo.R's DDD placebo
+  # formula wasn't updated to match until this fix. Grepping main.R's actual source (rather than
+  # hardcoding an assumed formula string) means a future change to main.R's primary spec fails this
+  # test immediately instead of silently leaving the placebo testing an outdated spec.
+  main_r    <- paste(readLines(file.path(project_root, "main.R")), collapse = "\n")
+  placebo_r <- paste(readLines(file.path(project_root, "scripts", "gender_placebo.R")), collapse = "\n")
+
+  expect_true(grepl("Mother \\* Post \\* WFH_Exposure \\+ Mother:GilNK", main_r),
+              info = "main.R's primary DDD formula changed shape -- update this test's expected pattern")
+  expect_true(grepl("Mother \\* Post \\* WFH_Exposure \\+ Mother:GilNK", placebo_r),
+              info = "gender_placebo.R's DDD placebo formula has drifted from main.R's primary DDD again")
 })
 
 test_that("run_gender_ddd_placebo returns NULL for a spec it cannot identify, instead of erroring", {

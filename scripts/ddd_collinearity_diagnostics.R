@@ -76,5 +76,27 @@ check_for_dropped_coefficients <- function(model, model_name, expected_drops = c
       model_name, length(unexpected), paste(unexpected, collapse = ", ")
     ))
   }
+
+  # Companion check for a DIFFERENT silent-drop mechanism: fixest's default fixef.rm = "singleton"
+  # removes whole OBSERVATIONS (not coefficients) that are the sole member of an FE group -- e.g. an
+  # occupation/demographic cell with n=1 contributes no within-group variation and is dropped before
+  # estimation. $collin.var above never sees this (it only tracks dropped columns), so it was
+  # previously invisible to this file's diagnostics entirely. model$fixef_removed is the precise
+  # accessor: NULL both when a model has no FE at all AND when it has FE but no singleton groups
+  # were removed; a non-NULL entry (a named list, one per FE variable, of removed group labels) means
+  # singleton removal actually happened -- verified empirically against a live fixest session (a
+  # model with FE and ordinary listwise NA-deleted rows but no singleton groups still returns
+  # fixef_removed == NULL, so this doesn't fire on ordinary NA removal, only on true singleton drops).
+  fixef_removed <- model$fixef_removed
+  if (!is.null(fixef_removed) && any(lengths(fixef_removed) > 0)) {
+    removed_desc <- paste(sprintf("%s: %s", names(fixef_removed),
+                                   vapply(fixef_removed, paste, character(1), collapse = ", ")),
+                          collapse = "; ")
+    warning(sprintf(
+      "check_for_dropped_coefficients: %s dropped observation(s) via singleton fixed-effect group removal (%s)",
+      model_name, removed_desc
+    ))
+  }
+
   invisible(dropped)
 }

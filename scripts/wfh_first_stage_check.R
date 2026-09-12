@@ -18,8 +18,13 @@
 library(tidyverse)
 library(fixest)
 
-check_wfh_first_stage_relevance <- function(ddd_df, controls = DEFAULT_CONTROLS) {
-  cell_fe_vars   <- c("GilNK", "TeudaGvoha", "MachozMegurim")
+check_wfh_first_stage_relevance <- function(ddd_df, controls = DEFAULT_CONTROLS,
+                                             cell_fe_vars = c("GilNK", "TeudaGvoha", "MachozMegurim")) {
+  # cell_fe_vars is a parameter (not a hardcoded local, as this had been before) so it can never
+  # silently diverge from main.R's own cell_fe_vars object -- the same class of fan-out bug already
+  # fixed once for exposure_cell_vars (docs/decisions/exposure-cell-granularity-fix.md). The default
+  # here matches main.R's current value only for backward compatibility with callers (and tests)
+  # that don't pass it explicitly.
   other_controls <- setdiff(controls, cell_fe_vars)
   cell_cluster_formula <- as.formula(paste("~", paste(cell_fe_vars, collapse = "^")))
 

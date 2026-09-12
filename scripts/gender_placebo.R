@@ -9,12 +9,20 @@
 # Extended for the DDD placebo (Mother*Post*WFH_Exposure): the two-way basic_reg() placebo above
 # tests whether *any* Mother:Post effect exists for men; it says nothing about whether men's
 # employment response also happens to track occupational WFH exposure, which is what the primary
-# DDD (main.R:149-159) actually claims. WFH_Exposure itself is occupation-level, not sex-specific,
-# so the same calibrated occupation scores (exposure_calibrated, built from WOMEN's realized
-# 2022-23 WFH -- see wfh_exposure_cells.R) are reused unchanged as the measurement instrument; only
-# the cell shift-share weights are rebuilt on men's own pre-period (2017-2019) occupation
-# composition, via build_exposure_cells(cleaned_men, ...). This holds "how exposed is this
-# occupation" fixed and swaps only the population being tested, which is what a placebo requires.
+# DDD (main.R's "8a. Primary DDD" section) actually claims. WFH_Exposure itself is occupation-level,
+# not sex-specific, so the same calibrated occupation scores (exposure_calibrated, built from
+# WOMEN's realized 2022-23 WFH -- see wfh_exposure_cells.R) are reused unchanged as the measurement
+# instrument; only the cell shift-share weights are rebuilt on men's own pre-period (2017-2019)
+# occupation composition, via build_exposure_cells(cleaned_men, ...). This holds "how exposed is
+# this occupation" fixed and swaps only the population being tested, which is what a placebo
+# requires.
+#
+# IMPORTANT: run_gender_ddd_placebo()'s formula below must be kept in sync with main.R's primary
+# DDD formula (both ddd_primary_additive and ddd_primary_fe) -- it is supposed to falsify the exact
+# spec that produces the paper's headline estimate, not an older version of it. See
+# test-gender_placebo.R's "formula stays in sync with main.R" test, which greps main.R's source for
+# this and fails loudly if the two ever drift apart again (as happened when Mother:GilNK was added
+# to main.R on 2026-09-11 but not here until this fix).
 library(tidyverse)
 library(fixest)
 source(file.path("scripts", "data_processing.R"))
@@ -75,8 +83,10 @@ run_gender_ddd_placebo <- function(cleaned_men, exposure_calibrated, controls = 
     })
   }
 
-  additive <- fit(paste("Mother * Post * WFH_Exposure +", paste(controls, collapse = " + ")))
-  fe       <- fit(paste("Mother * Post * WFH_Exposure +", paste(other_controls, collapse = " + ")),
+  additive <- fit(paste("Mother * Post * WFH_Exposure + Mother:GilNK +",
+                         paste(controls, collapse = " + ")))
+  fe       <- fit(paste("Mother * Post * WFH_Exposure + Mother:GilNK +",
+                         paste(other_controls, collapse = " + ")),
                    fe = paste(cell_fe_vars, collapse = "^"))
 
   models_ok <- Filter(Negate(is.null), list(additive = additive, fe = fe))

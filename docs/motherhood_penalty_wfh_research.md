@@ -136,7 +136,7 @@ $$Y_{it} = \beta_0 + \beta_1 Mother_i + \beta_2 Post_t + \beta_3 (Mother_i \time
 
 ### 4. Remote Work Exposure (WFH) Mechanism
 To assess if the reduction in the motherhood penalty is driven by remote work, the sample will be aggregated by occupation type.
-* **WFH Exposure Index:** Occupations will be characterized by their remote work potential. This index will be constructed using the 2020 CBS work-from-home variable to measure actual "WFH Exposure" (e.g., comparing tech workers whose WFH share jumped from 10% to 50% against cleaning workers with a 0% change).
+* **WFH Exposure Index:** Occupations will be characterized by their remote work potential. This index will be constructed using the 2021 CBS work-from-home variable (see `docs/decisions/checkpoint6-wfh-anchor-year.md` — 2021 is the first survey year in which the WFH question was actually asked) to measure actual "WFH Exposure" (e.g., comparing tech workers whose WFH share jumped from 10% to 50% against cleaning workers with a 0% change).
 * **Literature Anchoring:** WFH classifications will be cross-referenced with established literature, including WFH Research (Nick Bloom, Stanford) and Israeli policy papers (e.g., Cohen & Manor, 2024).
 * **Mechanism Regression:** A second-stage regression will test if occupations with high WFH exposure experienced a larger reduction in the penalty ($\beta_3$ from the primary model):
 $$\beta_j = \gamma_0 + \gamma_1 WFH\_Exposure_j + \epsilon_j$$

@@ -25,6 +25,7 @@ source(file.path("scripts", "ddd_mde_diagnostics.R"))
 source(file.path("scripts", "ddd_exposure_family_wald_test.R"))
 source(file.path("scripts", "ddd_exposure_synthesis.R"))
 source(file.path("scripts", "ddd_wald_iv_ratio.R"))
+source(file.path("scripts", "ddd_wild_cluster_bootstrap.R"))
 
 # ── 2. Configure paths ────────────────────────────────────────────────────────
 message("Edit folder paths if needed!")
@@ -300,6 +301,27 @@ ddd_external <- run_ddd_regression(
 message("Running robustness DDD (realized Israeli index, 2021 anchor)...")
 ddd_realized <- run_ddd_regression(cleaned_df, exposure_realized)
 
+# ── Small-cluster correction for the 3 occupation-level robustness DDDs (~40 ISCO-2 clusters) ──
+# Audit finding E3: these specs' cluster-robust SEs get no small-cluster adjustment, unlike the
+# ~210-cluster primary DDD's already-documented follow-up. Wild-cluster bootstrap (fwildclusterboot)
+# is the standard correction. Wrapped in tryCatch, matching this codebase's existing convention for
+# a diagnostic that shouldn't take down the whole run (see wfh_exposure_cells.R's
+# calibrate_isco_exposure() / gender_placebo.R's fit() helper) -- in particular, this degrades
+# gracefully (NULL + a message) if fwildclusterboot isn't installed, rather than erroring main.R.
+run_wcb_safely <- function(model, label) {
+  tryCatch(
+    run_wild_cluster_bootstrap(model, "MishlachYad_ISCO_08_2"),
+    error = function(e) {
+      message("Wild-cluster bootstrap skipped for ", label, ": ", conditionMessage(e))
+      NULL
+    }
+  )
+}
+message("Running wild-cluster bootstrap on occupation-level DDDs (~40 clusters, small-cluster correction)...")
+wcb_calibrated <- run_wcb_safely(ddd_calibrated$models$ddd, "calibrated occupation-level DDD")
+wcb_external    <- run_wcb_safely(ddd_external$models$ddd, "external occupation-level DDD")
+wcb_realized    <- run_wcb_safely(ddd_realized$models$ddd, "realized occupation-level DDD")
+
 # ── 8e. Age-balance robustness chain (docs/decisions/age-balance-robustness-chain.md) ─────────
 # Off by default: these are diagnostic/comparison checks layered on top of the primary DDD (8a),
 # not a replacement for it -- whether run_ddd_age_interacted()/run_ddd_reweighted() should REPLACE
@@ -346,7 +368,7 @@ if (RUN_AGE_BALANCE_ROBUSTNESS) {
 RUN_NULL_VS_POWER_AUDIT <- FALSE
 if (RUN_NULL_VS_POWER_AUDIT) {
   message("Checking WFH_Exposure's first-stage relevance against realized WFH_RefWeek...")
-  wfh_first_stage <- check_wfh_first_stage_relevance(ddd_df)
+  wfh_first_stage <- check_wfh_first_stage_relevance(ddd_df, cell_fe_vars = cell_fe_vars)
 
   message("Computing minimum detectable effect for the primary DDD's triple interaction...")
   baseline_employment_rate <- mean(ddd_df$Employed, na.rm = TRUE)
@@ -390,7 +412,7 @@ if (RUN_EXPOSURE_POWER_DIAGNOSTICS) {
   ))
 
   message("Rescaling the primary DDD's triple interaction by the WFH_Exposure first stage...")
-  wfh_first_stage  <- check_wfh_first_stage_relevance(ddd_df)
+  wfh_first_stage  <- check_wfh_first_stage_relevance(ddd_df, cell_fe_vars = cell_fe_vars)
   wald_iv_additive <- compute_ddd_wald_iv_ratio(ddd_primary_additive, wfh_first_stage$level_reg)
   wald_iv_fe       <- compute_ddd_wald_iv_ratio(ddd_primary_fe, wfh_first_stage$level_reg)
 }
@@ -419,6 +441,24 @@ results_to_export <- list(
   ddd_realized = ddd_realized
 )
 
+# wcb_* fields (only cluster_robust_se/boot_p/boot_ci) are exported as one-row data frames;
+# boot_summary (the raw fwildclusterboot object) is excluded, the same way results_to_export never
+# includes a raw fixest/lm model object directly (export_all_results() already skips those on its
+# own, but boot_summary isn't of either class, so it's dropped explicitly here instead).
+wcb_fields <- c("param", "cluster_var", "cluster_robust_se", "boot_p")
+wcb_to_export_df <- function(wcb) {
+  if (is.null(wcb)) return(NULL)
+  df <- as.data.frame(wcb[wcb_fields])
+  df$boot_ci_lower <- wcb$boot_ci[1]
+  df$boot_ci_upper <- wcb$boot_ci[2]
+  df
+}
+results_to_export$wild_cluster_bootstrap <- list(
+  calibrated = wcb_to_export_df(wcb_calibrated),
+  external   = wcb_to_export_df(wcb_external),
+  realized   = wcb_to_export_df(wcb_realized)
+)
+
 if (RUN_AGE_BALANCE_ROBUSTNESS) {
   # Only the aggregate pieces of each result -- balance_check$pre_df / age_balance_diag$pre_df are
   # row-level (one row per surveyed person) and deliberately excluded, same granularity choice as
@@ -443,10 +483,15 @@ if (RUN_AGE_BALANCE_ROBUSTNESS) {
 }
 
 if (RUN_NULL_VS_POWER_AUDIT) {
+  # compute_ddd_mde() returns a plain scalar list, not a data frame -- export_all_results() only
+  # ever exports data frames and ggplots, so mde_additive/mde_fe were silently dropped from
+  # outputs/ despite being cited in 3 decision memos. Wrapped as one-row data frames here so they
+  # actually reach disk; compute_ddd_mde()'s own contract/tests are untouched.
+  mde_fields <- c("coef_name", "point_estimate", "se", "sig_level", "power", "mde", "within_mde")
   results_to_export$null_vs_power_audit <- list(
     wfh_first_stage_table = wfh_first_stage$table,
-    mde_additive           = mde_additive,
-    mde_fe                 = mde_fe
+    mde_additive           = as.data.frame(mde_additive[mde_fields]),
+    mde_fe                 = as.data.frame(mde_fe[mde_fields])
   )
 }
 

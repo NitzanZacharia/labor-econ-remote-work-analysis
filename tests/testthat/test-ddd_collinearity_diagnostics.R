@@ -140,3 +140,42 @@ test_that("check_for_dropped_coefficients does not warn on a clean, non-collinea
 
   expect_no_warning(check_for_dropped_coefficients(m, "test model"))
 })
+
+# ── Singleton fixed-effect observation removal ────────────────────────────────────────────────
+# A DIFFERENT silent-drop mechanism from $collin.var above: fixest's default fixef.rm = "singleton"
+# removes whole OBSERVATIONS (not coefficients) belonging to an FE group of size 1. model$fixef_removed
+# is confirmed (via a live fixest session) to be NULL both when a model has no FE and when it has FE
+# but no singleton groups -- these tests pin that distinction down directly.
+
+test_that("check_for_dropped_coefficients warns when a singleton FE group is silently removed", {
+  set.seed(1)
+  n <- 30
+  synth <- tibble::tibble(
+    x   = rnorm(n),
+    grp = c("single", rep(c("a", "b", "c"), length.out = n - 1))
+  )
+  synth$y <- synth$x + rnorm(n)
+  m <- suppressMessages(feols(y ~ x | grp, data = synth))
+
+  expect_warning(
+    check_for_dropped_coefficients(m, "singleton test model"),
+    "singleton"
+  )
+})
+
+test_that("check_for_dropped_coefficients does not warn when an FE model has no singleton groups", {
+  set.seed(2)
+  n <- 60
+  synth <- tibble::tibble(x = rnorm(n), grp = rep(c("a", "b", "c"), length.out = n))
+  synth$y <- synth$x + rnorm(n)
+  m <- feols(y ~ x | grp, data = synth)
+
+  expect_no_warning(check_for_dropped_coefficients(m, "no-singleton FE test model"))
+})
+
+test_that("check_for_dropped_coefficients does not warn about singleton removal for a model with no FE at all", {
+  synth <- tibble::tibble(x = rnorm(50), y = rnorm(50))
+  m <- feols(y ~ x, data = synth)
+
+  expect_no_warning(check_for_dropped_coefficients(m, "no-FE test model"))
+})
