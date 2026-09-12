@@ -24,6 +24,7 @@ source(file.path("scripts", "wfh_first_stage_check.R"))
 source(file.path("scripts", "ddd_mde_diagnostics.R"))
 source(file.path("scripts", "ddd_exposure_family_wald_test.R"))
 source(file.path("scripts", "ddd_exposure_synthesis.R"))
+source(file.path("scripts", "ddd_wald_iv_ratio.R"))
 
 # ── 2. Configure paths ────────────────────────────────────────────────────────
 message("Edit folder paths if needed!")
@@ -355,7 +356,7 @@ if (RUN_NULL_VS_POWER_AUDIT) {
 
 # ── 8g. Exposure-interaction power diagnostics (family Wald test + cross-measure synthesis) ────
 # Off by default, diagnostic layered on top of the primary DDD (8a) and robustness DDDs (8b-8d),
-# not a replacement for either -- same framing as 8e/8f. Two distinct questions neither the
+# not a replacement for either -- same framing as 8e/8f. Three distinct questions neither the
 # per-coefficient tables nor the MDE audit (8f) answer on their own:
 # (1) run_ddd_exposure_family_wald_test(): is the null on Mother:Post:WFH_Exposure alone masking a
 #     jointly-significant signal across the whole {Mother:WFH_Exposure, Post:WFH_Exposure,
@@ -365,6 +366,14 @@ if (RUN_NULL_VS_POWER_AUDIT) {
 #     via inverse-variance weighting, with Cochran's Q flagging whether that pooling is even valid
 #     given each model's different WFH_Exposure proxy and sample (see the function's own header
 #     comment for why the naive pooled SE is anti-conservative, not a standalone inference).
+# (3) compute_ddd_wald_iv_ratio(): rescales the reduced-form triple interaction by the WFH_Exposure
+#     -> WFH_RefWeek first stage, expressing the null in units of "implied effect per unit of
+#     actual realized WFH-taking" rather than the diluted cell-level exposure regressor. A
+#     row-level 2SLS was considered and rejected (see the function's own header comment):
+#     WFH_RefWeek is only non-missing for Post==1 & Employed==1 & AvadBeshavua==1 rows, so using it
+#     as an endogenous regressor with Employed as the outcome would leave Employed definitionally 1
+#     in the estimation sample -- no outcome variation to explain. This ratio is a reinterpretation
+#     of MAGNITUDE, not a statistical-power fix; see the function's own caveats.
 RUN_EXPOSURE_POWER_DIAGNOSTICS <- FALSE
 if (RUN_EXPOSURE_POWER_DIAGNOSTICS) {
   message("Running joint Wald test on the WFH_Exposure interaction family (primary DDD, both specs)...")
@@ -379,6 +388,11 @@ if (RUN_EXPOSURE_POWER_DIAGNOSTICS) {
     occupation_external   = ddd_external$models$ddd,
     occupation_realized   = ddd_realized$models$ddd
   ))
+
+  message("Rescaling the primary DDD's triple interaction by the WFH_Exposure first stage...")
+  wfh_first_stage  <- check_wfh_first_stage_relevance(ddd_df)
+  wald_iv_additive <- compute_ddd_wald_iv_ratio(ddd_primary_additive, wfh_first_stage$level_reg)
+  wald_iv_fe       <- compute_ddd_wald_iv_ratio(ddd_primary_fe, wfh_first_stage$level_reg)
 }
 
 # ── 9. Export results ─────────────────────────────────────────────────────────
@@ -452,6 +466,11 @@ if (RUN_EXPOSURE_POWER_DIAGNOSTICS) {
       q_p             = ddd_triple_synthesis$q_p,
       heterogeneous   = ddd_triple_synthesis$heterogeneous,
       most_precise_model = ddd_triple_synthesis$most_precise_model
+    ),
+    wald_iv_ratio = bind_rows(
+      additive = as.data.frame(wald_iv_additive[c("rf_estimate", "rf_se", "fs_estimate", "fs_se", "ratio_estimate", "ratio_se", "z", "p")]),
+      fe       = as.data.frame(wald_iv_fe[c("rf_estimate", "rf_se", "fs_estimate", "fs_se", "ratio_estimate", "ratio_se", "z", "p")]),
+      .id = "spec"
     )
   )
 }
