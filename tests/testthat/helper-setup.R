@@ -18,7 +18,7 @@ find_project_root <- function(start = getwd()) {
 
 project_root <- find_project_root()
 
-# The 17 function-bearing files live in scripts/ and each other's internal source() calls (e.g.
+# The function-bearing files live in scripts/ and each other's internal source() calls (e.g.
 # data_processing.R referenced from basic_regression.R) use root-relative paths like
 # file.path("scripts", "data_processing.R") -- resolved against the current working directory, not
 # against the sourced file's own location. So instead of chdir=TRUE per file (which would cd into
@@ -47,6 +47,9 @@ source(file.path("scripts", "ddd_exposure_family_wald_test.R"))
 source(file.path("scripts", "ddd_exposure_synthesis.R"))
 source(file.path("scripts", "ddd_wald_iv_ratio.R"))
 source(file.path("scripts", "ddd_wild_cluster_bootstrap.R"))
+source(file.path("scripts", "ddd_loco_controls_diagnostics.R"))
+source(file.path("scripts", "wfh_first_stage_mother_heterogeneity.R"))
+source(file.path("scripts", "intensive_margin_wfh_ddd.R"))
 source(file.path("scripts", "export_results.R"))
 source(file.path("scripts", "Diagnostics.R"))
 source(file.path("scripts", "employment_by_child_age.R"))
@@ -59,6 +62,7 @@ source(file.path("robustness", "balance_test.R"))
 source(file.path("robustness", "age_balance_robustness.R"))
 source(file.path("robustness", "phase2_robustness.R"))
 source(file.path("robustness", "pretrend_wald_test.R"))
+source(file.path("robustness", "mother_heterogeneity_robustness.R"))
 
 setwd(old_wd)
 

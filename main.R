@@ -26,6 +26,9 @@ source(file.path("scripts", "ddd_exposure_family_wald_test.R"))
 source(file.path("scripts", "ddd_exposure_synthesis.R"))
 source(file.path("scripts", "ddd_wald_iv_ratio.R"))
 source(file.path("scripts", "ddd_wild_cluster_bootstrap.R"))
+source(file.path("scripts", "ddd_loco_controls_diagnostics.R"))
+source(file.path("scripts", "wfh_first_stage_mother_heterogeneity.R"))
+source(file.path("scripts", "intensive_margin_wfh_ddd.R"))
 
 # ── 2. Configure paths ────────────────────────────────────────────────────────
 message("Edit folder paths if needed!")
@@ -322,6 +325,24 @@ wcb_calibrated <- run_wcb_safely(ddd_calibrated$models$ddd, "calibrated occupati
 wcb_external    <- run_wcb_safely(ddd_external$models$ddd, "external occupation-level DDD")
 wcb_realized    <- run_wcb_safely(ddd_realized$models$ddd, "realized occupation-level DDD")
 
+# ── Gender DDD placebo (mirrors the primary DDD exactly, male subsample) ──────────────────────
+# run_gender_ddd_placebo() (scripts/gender_placebo.R) has existed since the age-balance chain was
+# added but was never actually called against real data anywhere -- only the older, simpler
+# Mother:Post basic_reg() placebo (run_gender_placebo()) has a documented real-data result. This
+# runs the DDD-mirroring placebo directly, reusing cleaned_men_for_exposure/exposure_calibrated
+# already built above for the exposure measures themselves.
+message("Running gender DDD placebo (male subsample, mirrors the primary DDD spec exactly)...")
+gender_ddd_placebo <- run_gender_ddd_placebo(cleaned_men_for_exposure, exposure_calibrated)
+gender_ddd_placebo_table <- NULL
+if (!is.null(gender_ddd_placebo)) {
+  models_ok <- Filter(Negate(is.null), gender_ddd_placebo$models)
+  if (length(models_ok) > 0) {
+    hdrs <- c(additive = "Placebo Spec 1: additive controls",
+              fe       = "Placebo Spec 2: interacted cell FE")[names(models_ok)]
+    gender_ddd_placebo_table <- do.call(etable, c(models_ok, list(headers = unname(hdrs), digits = 4)))
+  }
+}
+
 # ── 8e. Age-balance robustness chain (docs/decisions/age-balance-robustness-chain.md) ─────────
 # Off by default: these are diagnostic/comparison checks layered on top of the primary DDD (8a),
 # not a replacement for it -- whether run_ddd_age_interacted()/run_ddd_reweighted() should REPLACE
@@ -333,7 +354,7 @@ wcb_realized    <- run_wcb_safely(ddd_realized$models$ddd, "realized occupation-
 # phase2_robustness.R is deliberately NOT wired in here: its run_ddd_weights_check() applies
 # MishkalSofi as a feols() weight, which CLAUDE.md requires raising with the user before adding to
 # any run, not just before committing its output -- see the decision memo's "Not wired in" section.
-RUN_AGE_BALANCE_ROBUSTNESS <- FALSE
+RUN_AGE_BALANCE_ROBUSTNESS <- TRUE
 if (RUN_AGE_BALANCE_ROBUSTNESS) {
   source(file.path("robustness", "balance_test.R"))
   source(file.path("robustness", "age_balance_robustness.R"))
@@ -396,7 +417,7 @@ if (RUN_NULL_VS_POWER_AUDIT) {
 #     as an endogenous regressor with Employed as the outcome would leave Employed definitionally 1
 #     in the estimation sample -- no outcome variation to explain. This ratio is a reinterpretation
 #     of MAGNITUDE, not a statistical-power fix; see the function's own caveats.
-RUN_EXPOSURE_POWER_DIAGNOSTICS <- FALSE
+RUN_EXPOSURE_POWER_DIAGNOSTICS <- TRUE
 if (RUN_EXPOSURE_POWER_DIAGNOSTICS) {
   message("Running joint Wald test on the WFH_Exposure interaction family (primary DDD, both specs)...")
   wald_family_additive <- run_ddd_exposure_family_wald_test(ddd_primary_additive)
@@ -415,6 +436,100 @@ if (RUN_EXPOSURE_POWER_DIAGNOSTICS) {
   wfh_first_stage  <- check_wfh_first_stage_relevance(ddd_df, cell_fe_vars = cell_fe_vars)
   wald_iv_additive <- compute_ddd_wald_iv_ratio(ddd_primary_additive, wfh_first_stage$level_reg)
   wald_iv_fe       <- compute_ddd_wald_iv_ratio(ddd_primary_fe, wfh_first_stage$level_reg)
+}
+
+# ── 8h. Phase 2 specification-robustness checks (two-way clustering, education-sector) ────────
+# Off by default, same framing as 8e/8f/8g. robustness/phase2_robustness.R is fully coded and unit-
+# tested (three checks: 2a two-way clustering, 2b education-sector transparency, 2c a MishkalSofi
+# survey-design-weight comparison) but, unlike the age-balance chain, was never even SOURCED from
+# main.R before now -- none of its checks have a documented real-data run anywhere in the repo.
+# Only 2a and 2b are run here. 2c (run_ddd_weights_check()) is deliberately excluded: it applies
+# MishkalSofi as a feols() weight, which CLAUDE.md requires explicit user sign-off for before any
+# run, not just before committing output -- that sign-off has not been given, so 2c stays
+# unexecuted, exactly as documented in docs/decisions/age-balance-robustness-chain.md's "Not wired
+# in" section for this whole file.
+#
+# Both checks below are built on prepare_reweighted_ddd_df()'s rake-reweighted baseline (the
+# GilNK-imbalance correction from age_balance_robustness.R), not main.R's own primary DDD frame --
+# this is a real difference from 8a/8e, not an oversight; see phase2_robustness.R's own header.
+RUN_PHASE2_SPEC_ROBUSTNESS <- TRUE
+if (RUN_PHASE2_SPEC_ROBUSTNESS) {
+  source(file.path("robustness", "phase2_robustness.R"))
+
+  message("Running 2a: one-way vs. two-way (IDPUF + occupation x year) clustering...")
+  phase2_twoway <- run_ddd_twoway_cluster(cleaned_df, exposure_cells)
+  phase2_twoway_table <- etable(
+    phase2_twoway$additive$one_way, phase2_twoway$additive$two_way,
+    phase2_twoway$fe$one_way, phase2_twoway$fe$two_way,
+    headers = c("Additive: 1-way (IDPUF)", "Additive: 2-way (+occ x year)",
+                "FE: 1-way (IDPUF)", "FE: 2-way (+occ x year)"),
+    digits = 4
+  )
+
+  message("Running 2b: education-sector transparency (ISCO23 exclusion + explicit interaction)...")
+  phase2_education <- run_ddd_education_checks(cleaned_df, exposure_cells)
+  phase2_education_excl_table <- etable(
+    phase2_education$exclude_isco23$additive, phase2_education$exclude_isco23$fe,
+    headers = c("Excl. ISCO23: additive", "Excl. ISCO23: cell FE"), digits = 4
+  )
+  phase2_education_dummy_table <- etable(
+    phase2_education$education_dummy$additive, phase2_education$education_dummy$fe,
+    headers = c("+EducationSector: additive", "+EducationSector: cell FE"), digits = 4
+  )
+}
+
+# ── 8i. Leave-one-control-out audit + first-stage Mother heterogeneity ────────────────────────
+# Off by default, same framing as 8e-8h. Two checks, both motivated by real-data findings surfaced
+# above rather than a speculative sweep:
+# (1) run_ddd_leave_one_control_out(): the age-balance chain (8e) already showed GilNK's imbalance
+#     was consequential once controlled for differently (Mother:GilNK). robustness/balance_test.R's
+#     real-data run (also 8e) shows MatzavMishpachti has an even larger, more quartile-varying
+#     imbalance than GilNK ever had -- this checks whether removing it (or any other DEFAULT_CONTROLS
+#     member) moves Mother:Post:WFH_Exposure, the non-speculative way to audit "bad controls" (only
+#     removes existing controls, never adds a new one).
+# (2) check_wfh_first_stage_by_mother(): tests whether WFH_Exposure -> realized WFH is homogeneous
+#     across Mother status, on the full Post==1 individual-level sample -- not bottlenecked by the
+#     primary DDD's cell-level MDE problem, so this is the best-powered test in the whole diagnostic
+#     suite for whether the exposure "dose" itself differs by Mother status.
+RUN_LOCO_AND_FIRST_STAGE_HETEROGENEITY <- TRUE
+if (RUN_LOCO_AND_FIRST_STAGE_HETEROGENEITY) {
+  message("Running leave-one-control-out audit on the primary DDD's Spec 1...")
+  loco_controls <- run_ddd_leave_one_control_out(ddd_df, cell_fe_vars = cell_fe_vars)
+
+  message("Checking WFH_Exposure's first-stage relevance BY Mother status (Post==1 only)...")
+  wfh_first_stage_by_mother <- check_wfh_first_stage_by_mother(ddd_df, cell_fe_vars = cell_fe_vars)
+}
+
+# ── 8j. Subgroup heterogeneity (child age, single-parent status) + intensive-margin WFH DDD ────
+# Off by default, same framing as 8e-8i. Three checks:
+# (1)/(2) run_ddd_by_child_age()/run_ddd_by_single_parent() (robustness/mother_heterogeneity_
+#     robustness.R): the pooled binary Mother indicator averages a mother of a 1-year-old with a
+#     mother of a 16-year-old, and a single mother with a partnered one, into one coefficient -- if
+#     WFH-driven labor-supply elasticity is concentrated in the highest-need subgroups, that pooling
+#     is exactly the kind of masking that would produce today's null. Both split variables
+#     (GilYeledTzairMBNK, MisparHorimYechidim) already exist in cleaned_df but were never wired into
+#     the DDD before. See the file's own header for the MisparHorimYechidim > 0 "single parent"
+#     coding ASSUMPTION (unverified against the CBS codebook -- the raw distribution is printed so
+#     it's checkable) and the MDE caveat (each subgroup is smaller than the full mother population,
+#     so its MDE is larger than the already-underpowered full-sample one).
+# (3) run_intensive_margin_wfh_ddd() (scripts/intensive_margin_wfh_ddd.R): Employed is a 0/1
+#     indicator structurally blind to an intensification channel (part-time -> full-time within the
+#     same employment spell) -- this tests the WFH-exposure mechanism on WorkHoursCont instead,
+#     conditional on Employed==1. Treat a significant result here as suggestive, not final -- see
+#     the function's own header on the selection-on-Employed caveat this shares with
+#     intensive_margin_lee_bounds.R.
+RUN_MOTHER_HETEROGENEITY_AND_INTENSIVE_WFH <- TRUE
+if (RUN_MOTHER_HETEROGENEITY_AND_INTENSIVE_WFH) {
+  source(file.path("robustness", "mother_heterogeneity_robustness.R"))
+
+  message("Running primary DDD spec by youngest-child age (under 5 vs. 5-17)...")
+  ddd_by_child_age <- run_ddd_by_child_age(cleaned_df, exposure_cells)
+
+  message("Running primary DDD spec by single-parent status...")
+  ddd_by_single_parent <- run_ddd_by_single_parent(cleaned_df, exposure_cells)
+
+  message("Running WFH-mechanism DDD on the intensive margin (WorkHoursCont, Employed==1)...")
+  intensive_wfh_ddd <- run_intensive_margin_wfh_ddd(cleaned_df, exposure_cells)
 }
 
 # ── 9. Export results ─────────────────────────────────────────────────────────
@@ -438,7 +553,8 @@ results_to_export <- list(
   ddd_primary = primary_ddd_table,
   ddd_calibrated = ddd_calibrated,
   ddd_external = ddd_external,
-  ddd_realized = ddd_realized
+  ddd_realized = ddd_realized,
+  gender_ddd_placebo = gender_ddd_placebo_table
 )
 
 # wcb_* fields (only cluster_robust_se/boot_p/boot_ci) are exported as one-row data frames;
@@ -515,6 +631,29 @@ if (RUN_EXPOSURE_POWER_DIAGNOSTICS) {
       fe       = as.data.frame(wald_iv_fe[c("rf_estimate", "rf_se", "fs_estimate", "fs_se", "ratio_estimate", "ratio_se", "z", "p")]),
       .id = "spec"
     )
+  )
+}
+
+if (RUN_PHASE2_SPEC_ROBUSTNESS) {
+  results_to_export$phase2_spec_robustness <- list(
+    twoway_cluster           = phase2_twoway_table,
+    education_exclude_isco23 = phase2_education_excl_table,
+    education_dummy          = phase2_education_dummy_table
+  )
+}
+
+if (RUN_LOCO_AND_FIRST_STAGE_HETEROGENEITY) {
+  results_to_export$loco_and_first_stage_heterogeneity <- list(
+    loco_controls              = loco_controls$table,
+    wfh_first_stage_by_mother  = wfh_first_stage_by_mother$table
+  )
+}
+
+if (RUN_MOTHER_HETEROGENEITY_AND_INTENSIVE_WFH) {
+  results_to_export$mother_heterogeneity_and_intensive_wfh <- list(
+    ddd_by_child_age      = list(table = ddd_by_child_age$table, mde = ddd_by_child_age$mde_table),
+    ddd_by_single_parent  = list(table = ddd_by_single_parent$table, mde = ddd_by_single_parent$mde_table),
+    intensive_wfh_ddd     = intensive_wfh_ddd$table
   )
 }
 
