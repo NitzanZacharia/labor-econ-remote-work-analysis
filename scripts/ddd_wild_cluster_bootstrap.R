@@ -8,14 +8,15 @@
 #
 # New dependency (fwildclusterboot), flagged to and approved by the user per CLAUDE.md.
 #
-# IMPORTANT CAVEAT: fwildclusterboot's exact return-object field names used below ($p_val,
-# $conf_int) come from the package's public documentation/vignette examples, NOT from a live
-# verification in this session -- CRAN package installation was attempted here and failed because
-# this sandbox could not reach a working CRAN mirror. Before relying on this function's output:
-# install fwildclusterboot locally, run `Rscript run_tests.R` (test-ddd_wild_cluster_bootstrap.R
-# exercises this function directly against a real fitted model), and spot-check one real call's
-# output against `summary(res$boot_summary)` to confirm these field names still match the
-# installed package version.
+# fwildclusterboot was archived from CRAN; install it (and its own archived dependency,
+# summclust) from GitHub: remotes::install_github("s3alfisc/summclust"), then
+# remotes::install_github("s3alfisc/fwildclusterboot"). $p_val/$conf_int field names verified
+# against a live boottest() call on real data (2026-09-13).
+#
+# boottest() dropped its own `seed` argument in fwildclusterboot 0.13 (installed here: 0.14.3) --
+# reproducibility is now controlled only via the global RNG state, set below with set.seed() and
+# dqrng::dqset.seed() (boottest()'s default sampling = "dqrng" draws from dqrng's own generator,
+# not base R's, so both seeds are needed) rather than passed into the call.
 run_wild_cluster_bootstrap <- function(model, cluster_var, param = "Mother:Post:WFH_Exposure",
                                         B = 9999, seed = 1) {
   if (!requireNamespace("fwildclusterboot", quietly = TRUE)) {
@@ -23,15 +24,20 @@ run_wild_cluster_bootstrap <- function(model, cluster_var, param = "Mother:Post:
          "installed. Install it with install.packages('fwildclusterboot') before calling this ",
          "function.")
   }
-  if (!param %in% names(fixest::coef(model))) {
+  if (!param %in% names(coef(model))) {
     stop(sprintf(
       "run_wild_cluster_bootstrap: '%s' not found in the fitted model's coefficients -- was it dropped by collinearity?",
       param
     ))
   }
 
+  set.seed(seed)
+  if (requireNamespace("dqrng", quietly = TRUE)) {
+    dqrng::dqset.seed(seed)
+  }
+
   boot <- fwildclusterboot::boottest(
-    model, clustid = cluster_var, param = param, B = B, seed = seed
+    model, clustid = cluster_var, param = param, B = B
   )
 
   list(
