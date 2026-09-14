@@ -70,7 +70,7 @@ Employed_{it} = {}& \beta_0 + \beta_1 Mother_i + \beta_2 Post_t + \beta_3 WFHExp
 \end{align}
 The coefficient of interest is $\beta_7$. $WFHExposure_i$ is constructed entirely from \emph{pre-period} (2017--2019) occupational composition (Section~4), so it varies at the level of a demographic cell rather than the individual; standard errors are accordingly clustered at that cell level (the interaction of age group, education, and district) rather than at the individual level, to avoid understating the standard error on a regressor with no within-cluster variation (a Moulton-type correction). Olden and Møen (2022) formalize why this triple-difference design is attractive relative to running two separate difference-in-differences: it requires only a single parallel-trends assumption on the triple interaction, rather than two independent parallel-trends assumptions that would need to hold simultaneously.
 
-The $Mother_i \times GilNK_i$ term (an interaction with the categorical age-group control) is included because pre-period covariate balance tests (Section~4) reveal an age imbalance between mothers and non-mothers whose \emph{magnitude} itself varies systematically with WFH-exposure quartile -- a pattern an additive age control cannot absorb.
+The $Mother_i \times GilNK_i$ term (an interaction with the categorical age-group control) is included because a pre-period covariate balance check reveals a real age imbalance between mothers and non-mothers whose \emph{magnitude} itself varies systematically with WFH-exposure quartile: a gap of $-0.797$ age-group units in the lowest exposure quartile ($t\approx-80.9$) narrows and reverses to $+0.239$ in the highest quartile ($t\approx21.2$; $n=201{,}388$ pre-period observations) -- a pattern an additive age control cannot absorb.
 
 \subsection{Identification assumptions and threats}
 
@@ -93,6 +93,8 @@ The data are Israeli Central Bureau of Statistics Labor Force Survey microdata f
 \paragraph{Limitations.} CBS survey weights ($MishkalSofi$, etc.) are not applied in any outcome regression reported below; all coefficients are unweighted sample estimates and should not be read as population-representative. This is a deliberate, documented scope decision rather than an oversight, made to keep the identification strategy legible; a weighted robustness check exists in the underlying codebase but has not been run pending a separate methodological decision. The Lee bounds correct only for excess selection into the $Mother=1,\,Post=1$ employment cell, not for possible under-selection in that cell.
 
 \section{Findings}
+
+The results are presented in four steps: baseline extensive- and intensive-margin effects of motherhood (Section~5.1), the primary test of whether WFH exposure explains either pattern (Section~5.2), a broader search for extensive-margin heterogeneity once that test proves inconclusive (Section~5.3), and a synthesis of the overall pattern (Section~5.4).
 
 \subsection{Baseline effects: employment is flat, hours rise}
 
