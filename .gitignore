@@ -18,3 +18,11 @@ Rplots*.pdf
 # CSVs are the actual data-use-agreement boundary -- gitignored via the `*.csv` rule above and kept
 # entirely outside the repo (see `folder_path` in main.R) -- these derived outputs are not.
 !outputs/**
+
+# LaTeX build litter from compiling paper/paper.tex -- paper.pdf itself is tracked.
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.toc
+paper/*.bbl
+paper/*.blg
