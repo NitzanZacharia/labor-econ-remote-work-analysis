@@ -42,7 +42,7 @@ make_row <- function(IDPUF, ShnatSeker, Min, GilNK, MisparYeladimAd17MB, GilYele
                       SemelEretzLeda, DargatNayadut, MishlachYad_ISCO_08_2, MachozYishuvAvoda,
                       Leom, MatzavMishpachti, Dat, MachozMegurim, MisparHorimYechidim,
                       AvadMeHaBayit = NA, KamaShaot = NA, ShaotAvodaLeMaase = NA,
-                      MishkalSofi = 1) {
+                      MishkalSofi = 1, AvadBeshavua = NA, SibaNeedar = NA) {
   row <- tibble(
     IDPUF = IDPUF, ShnatSeker = ShnatSeker, Min = Min, GilNK = GilNK,
     MisparYeladimAd17MB = MisparYeladimAd17MB, GilYeledTzairMBNK = GilYeledTzairMBNK,
@@ -63,7 +63,8 @@ make_row <- function(IDPUF, ShnatSeker, Min, GilNK, MisparYeladimAd17MB, GilYele
     # the weighting arithmetic itself is already covered by test-wfh_exposure_cells.R's dedicated
     # unequal-weight tests; this column only needs to exist so the full pipeline (test-pipeline_
     # smoke.R's section-8 mirror) doesn't crash on a missing column.
-    MishkalSofi = MishkalSofi
+    MishkalSofi = MishkalSofi,
+    AvadBeshavua = AvadBeshavua, SibaNeedar = SibaNeedar
   )
   for (col in range_boundary_cols) row[[col]] <- 0
   for (col in diagnostics_peek_cols) row[[col]] <- 0
@@ -142,7 +143,25 @@ fixture_2021 <- bind_rows(
   make_row(2021103, 2022, 1, 4, 1, 4, 1, 1, 9, 6, 2, 3, 252, 4, 1, 1, 2, 1, 2,
             ShaotAvodaLeMaase = 45),
   make_row(2021104, 2023, 1, 3, 0, 0, 2, 2, 0, 4, 9, 0, 253, 5, 1, 2, 1, 2, 0,
-            AvadMeHaBayit = 2, ShaotAvodaLeMaase = 20)
+            AvadMeHaBayit = 2, ShaotAvodaLeMaase = 20),
+  # Furloughed / Employed_strict edge cases (scripts/data_processing.R,
+  # docs/decisions/furlough-employed-contamination.md). SibaNeedar==9 = CBS's "reduction in work
+  # scope / temporary suspension up to 30 days" code (Halat), asked only when AvadBeshavua==4.
+  # 2021007: employed, furloughed (SibaNeedar==9) -> Furloughed==1, Employed_strict==0.
+  make_row(2021007, 2021, 2, 4, 0, 0, 1, NA, 6, 5, 10, 2, 210, 1, 1, 1, 1, 1, 0,
+            AvadBeshavua = 4, SibaNeedar = 9),
+  # 2021008: employed, worked the reference week -> SibaNeedar never asked (NA) -> NA must mean
+  # "worked", not furloughed -> Furloughed==0, Employed_strict==1.
+  make_row(2021008, 2021, 2, 5, 0, 0, 1, NA, 6, 5, 10, 2, 211, 2, 1, 1, 1, 1, 0,
+            AvadBeshavua = 1, SibaNeedar = NA),
+  # 2021009: employed, absent for a DIFFERENT reason (5 = maternity leave, not furlough) ->
+  # Furloughed==0, Employed_strict==1.
+  make_row(2021009, 2021, 2, 6, 0, 0, 1, NA, 6, 5, 10, 2, 212, 3, 1, 1, 1, 1, 0,
+            AvadBeshavua = 4, SibaNeedar = 5),
+  # 2021010: NOT employed (Muasak==2) with SibaNeedar==9 present anyway (a real-world CBS
+  # data-quality edge case) -> the Muasak==1 guard must keep Furloughed==0 regardless.
+  make_row(2021010, 2021, 2, 7, 0, 0, 2, NA, 6, 5, 10, 2, 213, 4, 1, 1, 1, 1, 0,
+            AvadBeshavua = 4, SibaNeedar = 9)
 )
 
 write_csv(fixture_2019, file.path("tests", "testthat", "fixtures", "sample_2019_Data.csv"))

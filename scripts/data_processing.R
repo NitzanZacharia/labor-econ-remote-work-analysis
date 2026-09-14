@@ -28,7 +28,15 @@ load_and_clean_data <- function(folder_path, sex_filter = c("women", "men")) {
       between(GilNK, 3, 7),
       ShnatSeker %in% c(2017, 2018, 2019, 2021, 2022, 2023)
     )
-  
+
+  # SibaNeedar (used below for Furloughed/Employed_strict) is present in every real CBS extract,
+  # but a handful of minimal ad hoc synthetic CSVs elsewhere in the test suite don't include it --
+  # default it to NA (meaning "never asked" / not furloughed) rather than erroring, the same
+  # tolerant-of-absence spirit as the any_of()-based column drops below.
+  if (!"SibaNeedar" %in% names(filtered_df)) {
+    filtered_df$SibaNeedar <- NA_real_
+  }
+
   # ── 3. Create new variables ──────────────────────────────────────────────────
   # ShaotAvodaBederechKlalNK bin -> median usual weekly hours (codebook: bin bounds)
   hour_bin_median <- c(`0` = 0, `1` = 4, `2` = 11, `3` = 18, `4` = 25.5, `5` = 32,
@@ -49,6 +57,31 @@ load_and_clean_data <- function(folder_path, sex_filter = c("women", "men")) {
       # Y: not Muasak==1 ("employed") is treated as "not working" (unemployed and
       # not-in-labor-force are not distinguished), per project guidance.
       Employed = if_else(!is.na(Muasak) & Muasak == 1, 1L, 0L),
+      # Furloughed / Employed_strict: Muasak (CBS's own collapsed employed/not-employed variable)
+      # follows standard ILO/LFS convention -- a worker on temporary unpaid/subsidized leave, still
+      # formally attached to an employer (Israel's Halat/חל"ת program), is coded Muasak==1
+      # ("employed"), indistinguishable from someone actually working. SibaNeedar ("reason for
+      # absence from work last week", asked whenever a Muasak==1 person reports AvadBeshavua==4 --
+      # didn't work the reference week) has value 9 = "צמצום בהיקף העבודה / הפסקה זמנית עד 30 יום"
+      # ("reduction in work scope / temporary suspension up to 30 days") per the CBS codebook
+      # (H20231031Codebook.xlsx) -- this is CBS's own operational definition of Halat. Real-data
+      # verification: among Muasak==1 rows, SibaNeedar==9 is a stable ~0.14-0.35% in 2017-2019,
+      # spikes to 3.11% in 2021 and re-elevates to 1.41% in 2023 (vs. 0.42% in 2022) -- concentrated
+      # almost entirely in Post==1 years, and negatively correlated with occupational WFH
+      # teleworkability across ISCO-2 occupations (r=-0.21) -- exactly the pattern needed to
+      # attenuate a true Mother:Post:WFH_Exposure effect toward zero by making the low-exposure
+      # side of the comparison look artificially employment-resilient. See
+      # docs/decisions/furlough-employed-contamination.md.
+      #
+      # NA-safe on both inputs: is.na(SibaNeedar) means the absence-reason question was never asked
+      # because the person DID work that reference week, so must NOT be treated as furloughed; the
+      # explicit is.na(Muasak) guard (mirroring Employed's own definition above) resolves the ~35
+      # real rows where SibaNeedar==9 is recorded but Muasak itself is missing -- without it, R's
+      # 3-valued logic (TRUE & NA = NA, not FALSE) would leak NA into Furloughed/Employed_strict.
+      # Employed_strict is a NEW column alongside Employed -- Employed itself is never redefined in
+      # place, since it's used throughout the rest of this codebase (CLAUDE.md).
+      Furloughed = as.integer(!is.na(SibaNeedar) & SibaNeedar == 9 & !is.na(Muasak) & Muasak == 1),
+      Employed_strict = Employed - Furloughed,
       # ── WFH block (raw columns AvodaMeHaBayit / AvadMeHaBayit / KamaShaot) ──
       # Asked from 2021 onward only -- the columns exist in the 2018-2023 schema but are empty in
       # 100% of pre-2021 rows, so everything here is NA by design before 2021.
@@ -240,9 +273,15 @@ load_and_clean_data <- function(folder_path, sex_filter = c("women", "men")) {
     "SemelMikzoank", "ShaotAvodaBederechKlalikaritNK", "ShaotAvodaLemaaseikaritNK",
     "SugChozemechushav", "SugMachalaPachotmechushav", "SugTeunaPachotmechushav",
     "MigzarTziburiAnafi", "TatTaasuka_Zman", "ChodeshKodem", "ChodeshKodemShaa",
-    "MimaHaMigbala", "Mismachim", "Modaot", "OfenAcher", "Oved30", "PniyaLmaasik"
+    "MimaHaMigbala", "Mismachim", "Modaot", "OfenAcher", "Oved30", "PniyaLmaasik",
+    # ZmanNeedar (absence duration) / NeedarBetashlum (paid-absence flag) -- the other two members
+    # of the "Needar" column family previously swept up by the "Needar" prefix-pattern entry below.
+    # No current use for either. SibaNeedar (absence REASON) is carved out and deliberately kept --
+    # see the Furloughed/Employed_strict comment above -- so "Needar" itself was removed from
+    # prefix_pattern and its two still-unwanted siblings moved here instead.
+    "ZmanNeedar", "NeedarBetashlum"
   )
-  
+
   # Regex pattern matching any column that starts with these prefixes
   prefix_pattern <- paste0(
     "(",
@@ -253,7 +292,7 @@ load_and_clean_data <- function(folder_path, sex_filter = c("women", "men")) {
       "MisparMuasakimMale", "TtchunatAvoda", "Limudim",
       "MisparChadarimMB", "TzfifutDiyur", "ShayachimKoachAvoda", "YabeshetLeida",
       "VetekNisuinNK", "MaduaLehachlif", "SherutTaasuka", "IsukLifneyShechipes",
-      "Needar", "Aliya", "Imut"
+      "Aliya", "Imut"
     ), collapse = "|"),
     ")"
   )

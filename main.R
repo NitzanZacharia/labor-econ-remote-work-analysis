@@ -29,6 +29,7 @@ source(file.path("scripts", "ddd_wild_cluster_bootstrap.R"))
 source(file.path("scripts", "ddd_loco_controls_diagnostics.R"))
 source(file.path("scripts", "wfh_first_stage_mother_heterogeneity.R"))
 source(file.path("scripts", "intensive_margin_wfh_ddd.R"))
+source(file.path("scripts", "furlough_diagnostics.R"))
 
 # ── 2. Configure paths ────────────────────────────────────────────────────────
 message("Edit folder paths if needed!")
@@ -532,6 +533,38 @@ if (RUN_MOTHER_HETEROGENEITY_AND_INTENSIVE_WFH) {
   intensive_wfh_ddd <- run_intensive_margin_wfh_ddd(cleaned_df, exposure_cells)
 }
 
+# ── 8k. Furlough-contamination correction (SibaNeedar==9 misclassified as Employed) ───────────
+# Off-by-default framing does NOT apply in the usual sense -- unlike 8e-8j, this is a measurement-
+# quality correction with real-data-verified contamination concentrated on the Post side of the
+# design (2021: 3.11% of Muasak==1 rows are SibaNeedar==9 furloughed; 2023: 1.41%; vs. ~0.1-0.35%
+# in 2017-2019 and 0.42% in 2022 -- see data_processing.R's Furloughed/Employed_strict comment and
+# docs/decisions/furlough-employed-contamination.md), so it defaults TRUE. Does NOT replace
+# Employed anywhere -- Employed_strict is a new column, run only in these explicitly-added
+# comparison specs, per CLAUDE.md.
+RUN_FURLOUGH_CORRECTION <- TRUE
+if (RUN_FURLOUGH_CORRECTION) {
+  source(file.path("robustness", "furlough_corrected_ddd.R"))
+  # compute_pre_period_quartile_breaks()/assign_wfh_quartile() live in age_balance_robustness.R --
+  # sourced independently here (source() is idempotent) so this block doesn't silently break if
+  # RUN_AGE_BALANCE_ROBUSTNESS (§8e) is ever turned off.
+  source(file.path("robustness", "age_balance_robustness.R"))
+
+  message("Checking furlough incidence (SibaNeedar==9 among Muasak==1)...")
+  furlough_quartile_breaks <- compute_pre_period_quartile_breaks(cleaned_df, exposure_cells)
+  furlough_df_with_quartile <- assign_wfh_quartile(
+    left_join(cleaned_df, exposure_cells, by = exposure_cell_vars), furlough_quartile_breaks
+  )
+  furlough_incidence <- check_furlough_incidence(cleaned_df, furlough_df_with_quartile)
+
+  message("Rerunning basic_reg() 2x2 DiD with Employed_strict (furlough-corrected)...")
+  basic_reg_furlough_corrected <- run_basic_reg_furlough_corrected(cleaned_df)
+
+  message("Rerunning primary DDD Spec 1/Spec 2 with Employed_strict (furlough-corrected)...")
+  ddd_furlough_corrected <- run_primary_ddd_furlough_corrected(
+    cleaned_df, exposure_cells, ddd_primary_additive, ddd_primary_fe
+  )
+}
+
 # ── 9. Export results ─────────────────────────────────────────────────────────
 # idpuf_panel_check is deliberately NOT included here: its idpuf_years/idpuf_periods tables are
 # per-IDPUF, a finer granularity than the aggregate tables everything else in this list produces --
@@ -654,6 +687,15 @@ if (RUN_MOTHER_HETEROGENEITY_AND_INTENSIVE_WFH) {
     ddd_by_child_age      = list(table = ddd_by_child_age$table, mde = ddd_by_child_age$mde_table),
     ddd_by_single_parent  = list(table = ddd_by_single_parent$table, mde = ddd_by_single_parent$mde_table),
     intensive_wfh_ddd     = intensive_wfh_ddd$table
+  )
+}
+
+if (RUN_FURLOUGH_CORRECTION) {
+  results_to_export$furlough_correction <- list(
+    incidence_by_year     = furlough_incidence$by_year,
+    incidence_by_quartile = furlough_incidence$by_quartile,
+    basic_reg_comparison  = basic_reg_furlough_corrected$table,
+    ddd_comparison        = ddd_furlough_corrected$table
   )
 }
 

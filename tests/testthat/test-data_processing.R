@@ -312,12 +312,46 @@ test_that("schema-presence: previously-dropped columns now survive; range-droppe
   expect_true("MachozYishuvAvoda" %in% names(cleaned))
   expect_true("Leom" %in% names(cleaned))
   expect_true("SemelEretzLeda" %in% names(cleaned))
+  expect_true("SibaNeedar" %in% names(cleaned))
 
   dropped_sample <- c("RamatDat", "BituachLeumi", "Yeladim0_1Prat", "Yeladim15_17Prat",
                        "MisparHachlafa", "YachasKirvaNK", "MisparNefashotGilAvodaV2007",
                        "MisparPrat", "ChipusAvodaSherutTaasuka", "ChipusAvodaOfenAcher",
-                       "EizeChozemechushav", "ChodeshKodemShaa", "MimaHaMigbala", "PniyaLmaasik")
+                       "EizeChozemechushav", "ChodeshKodemShaa", "MimaHaMigbala", "PniyaLmaasik",
+                       "ZmanNeedar", "NeedarBetashlum")
   for (col in dropped_sample) {
     expect_false(col %in% names(cleaned), info = col)
   }
+})
+
+# ── Furloughed / Employed_strict ──────────────────────────────────────────────────────────────
+# SibaNeedar==9 = CBS's "reduction in work scope / temporary suspension up to 30 days" code (Halat
+# furlough), asked only when AvadBeshavua==4. See data_processing.R's comment above the
+# Furloughed/Employed_strict derivation and docs/decisions/furlough-employed-contamination.md.
+
+test_that("Furloughed: Muasak==1 & SibaNeedar==9 -> 1; NA SibaNeedar (worked) -> 0; other reason -> 0; never NA", {
+  expect_equal(by_id("Furloughed", 2021007), 1L)  # Muasak==1, SibaNeedar==9
+  expect_equal(by_id("Furloughed", 2021008), 0L)  # Muasak==1, SibaNeedar NA (worked -> not asked)
+  expect_equal(by_id("Furloughed", 2021009), 0L)  # Muasak==1, SibaNeedar==5 (maternity leave)
+  expect_equal(sum(is.na(cleaned$Furloughed)), 0)
+})
+
+test_that("Furloughed: guarded by Muasak==1 regardless of SibaNeedar", {
+  # Muasak==2 (not employed) with SibaNeedar==9 present anyway -- must stay unfurloughed, since
+  # Furloughed is only meaningful as a correction WITHIN the nominally-employed population.
+  expect_equal(by_id("Furloughed", 2021010), 0L)
+  expect_equal(by_id("Employed", 2021010), 0L)
+})
+
+test_that("Employed_strict: furloughed rows are reclassified to 0; all other Employed==1 rows unaffected", {
+  expect_equal(by_id("Employed_strict", 2021007), 0L)  # furloughed -> reclassified
+  expect_equal(by_id("Employed", 2021007), 1L)          # original Employed untouched
+  expect_equal(by_id("Employed_strict", 2021008), 1L)  # worked -> still employed
+  expect_equal(by_id("Employed_strict", 2021009), 1L)  # absent for a non-furlough reason -> still employed
+  expect_equal(by_id("Employed_strict", 2021010), 0L)  # not employed to begin with
+
+  expect_equal(sum(is.na(cleaned$Employed_strict)), 0)
+  expect_true(all(cleaned$Employed_strict %in% c(0L, 1L)))
+  # The correction only ever removes employment, never adds it.
+  expect_true(all(cleaned$Employed_strict <= cleaned$Employed))
 })

@@ -30,7 +30,7 @@ validate_cleaned_df <- function(cleaned_df, sex_filter = c("women", "men")) {
          "the filter in load_and_clean_data().")
   }
 
-  for (col in c("Employed", "Mother", "Post")) {
+  for (col in c("Employed", "Mother", "Post", "Furloughed", "Employed_strict")) {
     n_na <- sum(is.na(cleaned_df[[col]]))
     if (n_na != 0) {
       stop("validate_cleaned_df: '", col, "' has ", n_na, " NA value(s). It is derived from ",
